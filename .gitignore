@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.repo-git/
+diagrams/*
+!diagrams/.gitkeep
+.DS_Store
+npm-debug.log*
+.env
+.env.*
