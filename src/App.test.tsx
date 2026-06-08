@@ -95,6 +95,16 @@ describe("App", () => {
     expect(screen.getByText("Saved")).toBeInTheDocument();
   });
 
+  it("lets the app own Mermaid render errors instead of injecting Mermaid error diagrams", async () => {
+    render(<App />);
+
+    expect(mermaid.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        suppressErrorRendering: true
+      })
+    );
+  });
+
   it("strips Markdown Mermaid fences from pasted LLM output", async () => {
     render(<App />);
 
@@ -626,6 +636,31 @@ describe("App", () => {
     expect(pageWheelListener).not.toHaveBeenCalled();
 
     document.removeEventListener("wheel", pageWheelListener);
+  });
+
+  it("zooms toward the mouse cursor when using the wheel", async () => {
+    render(<App />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: /mermaid code/i }), {
+      target: { value: "flowchart TD\n  A --> B" }
+    });
+    await screen.findByTestId("mock-svg");
+
+    const viewport = await screen.findByLabelText("Diagram pan and zoom viewport");
+    Object.defineProperty(viewport, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ left: 50, top: 30 })
+    });
+
+    fireEvent.wheel(viewport, {
+      clientX: 250,
+      clientY: 180,
+      deltaY: -100
+    });
+
+    expect(viewport.firstElementChild).toHaveStyle({
+      transform: "translate(-20px, -15px) scale(1.1)"
+    });
   });
 
   it("anchors toolbar zoom around the center of the preview viewport", async () => {

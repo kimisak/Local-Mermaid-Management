@@ -23,6 +23,10 @@ function clampScale(value: number) {
   return Math.min(4, Math.max(0.25, Number(value.toFixed(2))));
 }
 
+function roundPan(value: number) {
+  return Number(value.toFixed(2));
+}
+
 export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
   const id = useId().replace(/:/g, "");
   const [svg, setSvg] = useState<string | null>(null);
@@ -44,6 +48,7 @@ export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
+      suppressErrorRendering: true,
       theme: "default"
     });
   }, []);
@@ -135,8 +140,8 @@ export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
       }
 
       setPan((currentPan) => ({
-        x: zoomAnchor.x - ((zoomAnchor.x - currentPan.x) / currentScale) * nextScale,
-        y: zoomAnchor.y - ((zoomAnchor.y - currentPan.y) / currentScale) * nextScale
+        x: roundPan(zoomAnchor.x - ((zoomAnchor.x - currentPan.x) / currentScale) * nextScale),
+        y: roundPan(zoomAnchor.y - ((zoomAnchor.y - currentPan.y) / currentScale) * nextScale)
       }));
 
       return nextScale;
