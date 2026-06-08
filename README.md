@@ -9,7 +9,9 @@ This app is built for personal use on your own machine. It is not designed for h
 - Paste Mermaid code from an LLM or another source.
 - Render Mermaid diagrams live in the browser.
 - Save diagrams as local `.mmd` files.
-- Browse and delete saved diagrams from the sidebar.
+- Browse, group, move, and delete saved diagrams from the sidebar.
+- Create collapsible sidebar sections and drag diagrams into them.
+- Reorder sidebar sections with drag and drop. New sections appear first by default.
 - Copy Mermaid source code to the clipboard.
 - Export rendered diagrams as SVG, PNG, or WebP.
 - Use Mermaid frontmatter `title` as the default name for unsaved diagrams.
@@ -26,6 +28,14 @@ diagrams/
 
 Each saved diagram is written as one `.mmd` file. The app only saves a diagram when you explicitly press Save.
 
+Sidebar sections are stored as local metadata in:
+
+```text
+diagrams/.sections.json
+```
+
+Diagram files stay flat in `diagrams/`; moving a diagram into a section only updates metadata. Deleting a section moves its diagrams back to the default Uncategorized area.
+
 By default, this repository ignores saved diagram files:
 
 ```gitignore
@@ -35,7 +45,7 @@ diagrams/*
 
 That keeps the `diagrams/` folder present without committing your personal diagrams.
 
-If you want to store your diagrams in Git, remove those two `diagrams/` lines from `.gitignore`, then add and commit the `.mmd` files you want to version.
+If you want to store your diagrams and section metadata in Git, remove those two `diagrams/` lines from `.gitignore`, then add and commit the `.mmd` files and `.sections.json` metadata you want to version.
 
 ## Getting Started
 

@@ -25,6 +25,32 @@ function isDiagramInput(body: unknown): body is { name: string; code: string } {
   );
 }
 
+function isSectionInput(body: unknown): body is { name: string } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    typeof (body as { name?: unknown }).name === "string"
+  );
+}
+
+function isSectionAssignmentInput(body: unknown): body is { sectionId: string | null } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    (typeof (body as { sectionId?: unknown }).sectionId === "string" ||
+      (body as { sectionId?: unknown }).sectionId === null)
+  );
+}
+
+function isSectionOrderInput(body: unknown): body is { sectionIds: string[] } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    Array.isArray((body as { sectionIds?: unknown }).sectionIds) &&
+    (body as { sectionIds: unknown[] }).sectionIds.every((sectionId) => typeof sectionId === "string")
+  );
+}
+
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === "object" && error !== null;
 }
@@ -68,10 +94,54 @@ export function createApp(diagramsRoot = DEFAULT_DIAGRAMS_ROOT) {
     response.json(await store.saveDiagram(request.body));
   });
 
+  app.patch(
+    "/api/diagrams/:name/section",
+    async (request: Request<{ name: string }>, response: Response) => {
+      if (!isSectionAssignmentInput(request.body)) {
+        response.status(400).json({ error: "sectionId must be a string or null" });
+        return;
+      }
+
+      response.json(
+        await store.assignDiagramToSection(request.params.name, request.body.sectionId)
+      );
+    }
+  );
+
   app.delete(
     "/api/diagrams/:name",
     async (request: Request<{ name: string }>, response: Response) => {
       await store.deleteDiagram(request.params.name);
+      response.status(204).send();
+    }
+  );
+
+  app.get("/api/sections", async (_request: Request, response: Response) => {
+    response.json(await store.listSections());
+  });
+
+  app.post("/api/sections", async (request: Request, response: Response) => {
+    if (!isSectionInput(request.body)) {
+      response.status(400).json({ error: "name must be a string" });
+      return;
+    }
+
+    response.json(await store.createSection(request.body.name));
+  });
+
+  app.put("/api/sections/order", async (request: Request, response: Response) => {
+    if (!isSectionOrderInput(request.body)) {
+      response.status(400).json({ error: "sectionIds must be an array of strings" });
+      return;
+    }
+
+    response.json(await store.reorderSections(request.body.sectionIds));
+  });
+
+  app.delete(
+    "/api/sections/:id",
+    async (request: Request<{ id: string }>, response: Response) => {
+      await store.deleteSection(request.params.id);
       response.status(204).send();
     }
   );

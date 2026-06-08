@@ -19,13 +19,13 @@ describe("diagram API", () => {
       .send({ name: "System Flow", code: "flowchart TD\n  A --> B" })
       .expect(200)
       .expect("Content-Type", /json/)
-      .expect({ name: "system-flow", filename: "system-flow.mmd" });
+      .expect({ name: "system-flow", filename: "system-flow.mmd", sectionId: null });
 
     await request(app)
       .get("/api/diagrams")
       .expect(200)
       .expect("Content-Type", /json/)
-      .expect([{ name: "system-flow", filename: "system-flow.mmd" }]);
+      .expect([{ name: "system-flow", filename: "system-flow.mmd", sectionId: null }]);
 
     await request(app)
       .get("/api/diagrams/system-flow")
@@ -34,6 +34,7 @@ describe("diagram API", () => {
       .expect({
         name: "system-flow",
         filename: "system-flow.mmd",
+        sectionId: null,
         code: "flowchart TD\n  A --> B"
       });
 
@@ -70,6 +71,50 @@ describe("diagram API", () => {
       .expect(404)
       .expect("Content-Type", /json/)
       .expect({ error: "Diagram not found" });
+  });
+
+  it("manages sections and diagram assignments", async () => {
+    const root = await createTempRoot();
+    const app = createApp(root);
+
+    await request(app)
+      .post("/api/diagrams")
+      .send({ name: "Checkout", code: "flowchart TD\n  A --> B" })
+      .expect(200);
+
+    const workflows = await request(app)
+      .post("/api/sections")
+      .send({ name: "Workflows" })
+      .expect(200)
+      .expect("Content-Type", /json/);
+    const architecture = await request(app)
+      .post("/api/sections")
+      .send({ name: "Architecture" })
+      .expect(200)
+      .expect("Content-Type", /json/);
+
+    await request(app)
+      .get("/api/sections")
+      .expect(200)
+      .expect([architecture.body, workflows.body]);
+
+    await request(app)
+      .patch("/api/diagrams/checkout/section")
+      .send({ sectionId: workflows.body.id })
+      .expect(200)
+      .expect({ name: "checkout", filename: "checkout.mmd", sectionId: workflows.body.id });
+
+    await request(app)
+      .put("/api/sections/order")
+      .send({ sectionIds: [workflows.body.id, architecture.body.id] })
+      .expect(200)
+      .expect([workflows.body, architecture.body]);
+
+    await request(app).delete(`/api/sections/${workflows.body.id}`).expect(204);
+    await request(app)
+      .get("/api/diagrams")
+      .expect(200)
+      .expect([{ name: "checkout", filename: "checkout.mmd", sectionId: null }]);
   });
 
   it("returns sanitized JSON for unexpected filesystem errors", async () => {

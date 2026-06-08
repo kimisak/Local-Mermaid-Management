@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  assignDiagramToSection,
+  createSection,
   deleteDiagram,
+  deleteSection,
   listDiagrams,
+  listSections,
   loadDiagram,
+  reorderSections,
   saveDiagram
 } from "./diagrams";
 
@@ -45,6 +50,27 @@ describe("diagram API errors", () => {
 
     await expect(deleteDiagram("stale")).rejects.toThrow(
       "Failed to delete diagram \"stale\": offline"
+    );
+  });
+
+  it("wraps section API network failures with operation context", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+
+    await expect(listSections()).rejects.toThrow("Failed to list sections: offline");
+    await expect(createSection("Workflows")).rejects.toThrow(
+      "Failed to create section \"Workflows\": offline"
+    );
+    await expect(deleteSection("workflows")).rejects.toThrow("Failed to delete section: offline");
+    await expect(reorderSections(["workflows"])).rejects.toThrow(
+      "Failed to reorder sections: offline"
+    );
+  });
+
+  it("wraps move diagram failures with operation context", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+
+    await expect(assignDiagramToSection("checkout", "workflows")).rejects.toThrow(
+      "Failed to move diagram \"checkout\": offline"
     );
   });
 });

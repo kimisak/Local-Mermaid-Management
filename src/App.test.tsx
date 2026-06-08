@@ -4,19 +4,29 @@ import mermaid from "mermaid";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import {
+  assignDiagramToSection,
+  createSection,
   deleteDiagram,
+  deleteSection,
   listDiagrams,
+  listSections,
   loadDiagram,
+  reorderSections,
   saveDiagram
 } from "./api/diagrams";
 import { downloadBlob, downloadTextFile } from "./lib/download";
 import { svgToRasterBlob } from "./lib/rasterExport";
 
 vi.mock("./api/diagrams", () => ({
+  assignDiagramToSection: vi.fn(),
+  createSection: vi.fn(),
   listDiagrams: vi.fn(),
+  listSections: vi.fn(),
   loadDiagram: vi.fn(),
   saveDiagram: vi.fn(),
-  deleteDiagram: vi.fn()
+  deleteDiagram: vi.fn(),
+  deleteSection: vi.fn(),
+  reorderSections: vi.fn()
 }));
 
 vi.mock("mermaid", () => ({
@@ -38,14 +48,28 @@ vi.mock("./lib/rasterExport", () => ({
   svgToRasterBlob: vi.fn()
 }));
 
+const mockedAssignDiagramToSection = vi.mocked(assignDiagramToSection);
+const mockedCreateSection = vi.mocked(createSection);
 const mockedListDiagrams = vi.mocked(listDiagrams);
+const mockedListSections = vi.mocked(listSections);
 const mockedLoadDiagram = vi.mocked(loadDiagram);
 const mockedSaveDiagram = vi.mocked(saveDiagram);
 const mockedDeleteDiagram = vi.mocked(deleteDiagram);
+const mockedDeleteSection = vi.mocked(deleteSection);
+const mockedReorderSections = vi.mocked(reorderSections);
 const mockedMermaidRender = vi.mocked(mermaid.render);
 const mockedDownloadBlob = vi.mocked(downloadBlob);
 const mockedDownloadTextFile = vi.mocked(downloadTextFile);
 const mockedSvgToRasterBlob = vi.mocked(svgToRasterBlob);
+
+function createMockDataTransfer() {
+  const data = new Map<string, string>();
+
+  return {
+    setData: vi.fn((type: string, value: string) => data.set(type, value)),
+    getData: vi.fn((type: string) => data.get(type) ?? "")
+  };
+}
 
 describe("App", () => {
   beforeEach(() => {
@@ -61,19 +85,40 @@ describe("App", () => {
       value: { writeText: vi.fn().mockResolvedValue(undefined) }
     });
     mockedListDiagrams.mockResolvedValue([
-      { name: "Checkout flow", filename: "Checkout flow.mmd" },
-      { name: "Roadmap", filename: "Roadmap.mmd" }
+      { name: "Checkout flow", filename: "Checkout flow.mmd", sectionId: null },
+      { name: "Roadmap", filename: "Roadmap.mmd", sectionId: null }
     ]);
+    mockedListSections.mockResolvedValue([]);
     mockedLoadDiagram.mockImplementation(async (name: string) => ({
       name,
       filename: `${name}.mmd`,
+      sectionId: null,
       code: name === "Checkout flow" ? "flowchart TD\n  A --> B" : "graph LR\n  C --> D"
     }));
     mockedSaveDiagram.mockResolvedValue({
       name: "Checkout flow",
-      filename: "Checkout flow.mmd"
+      filename: "Checkout flow.mmd",
+      sectionId: null
     });
     mockedDeleteDiagram.mockResolvedValue(undefined);
+    mockedDeleteSection.mockResolvedValue(undefined);
+    mockedCreateSection.mockResolvedValue({
+      id: "workflows",
+      name: "Workflows",
+      createdAt: "2026-06-08T12:00:00.000Z"
+    });
+    mockedReorderSections.mockImplementation(async (sectionIds) =>
+      sectionIds.map((id) => ({
+        id,
+        name: id,
+        createdAt: "2026-06-08T12:00:00.000Z"
+      }))
+    );
+    mockedAssignDiagramToSection.mockImplementation(async (name, sectionId) => ({
+      name,
+      filename: `${name}.mmd`,
+      sectionId
+    }));
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
@@ -103,6 +148,83 @@ describe("App", () => {
         suppressErrorRendering: true
       })
     );
+  });
+
+  it("creates a sidebar section", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue("Workflows");
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /new section/i }));
+
+    expect(mockedCreateSection).toHaveBeenCalledWith("Workflows");
+    expect(await screen.findByText("Workflows")).toBeInTheDocument();
+  });
+
+  it("collapses and expands a sidebar section", async () => {
+    mockedListSections.mockResolvedValue([
+      { id: "workflows", name: "Workflows", createdAt: "2026-06-08T12:00:00.000Z" }
+    ]);
+    mockedListDiagrams.mockResolvedValue([
+      { name: "Checkout flow", filename: "Checkout flow.mmd", sectionId: "workflows" }
+    ]);
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /^Checkout flow/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /collapse Workflows/i }));
+    expect(screen.queryByRole("button", { name: /^Checkout flow/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /expand Workflows/i }));
+    expect(await screen.findByRole("button", { name: /^Checkout flow/i })).toBeInTheDocument();
+  });
+
+  it("moves a diagram into a sidebar section with drag and drop", async () => {
+    mockedListSections.mockResolvedValue([
+      { id: "workflows", name: "Workflows", createdAt: "2026-06-08T12:00:00.000Z" }
+    ]);
+    render(<App />);
+
+    const diagram = await screen.findByRole("button", { name: /^Checkout flow/i });
+    const section = screen.getByText("Workflows").closest(".sectionGroup");
+    const dataTransfer = createMockDataTransfer();
+
+    fireEvent.dragStart(diagram, { dataTransfer });
+    fireEvent.drop(section!, { dataTransfer });
+
+    expect(mockedAssignDiagramToSection).toHaveBeenCalledWith("Checkout flow", "workflows");
+  });
+
+  it("deletes a section and moves its diagrams back to uncategorized", async () => {
+    mockedListSections.mockResolvedValue([
+      { id: "workflows", name: "Workflows", createdAt: "2026-06-08T12:00:00.000Z" }
+    ]);
+    mockedListDiagrams.mockResolvedValue([
+      { name: "Checkout flow", filename: "Checkout flow.mmd", sectionId: "workflows" }
+    ]);
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /delete section Workflows/i }));
+
+    expect(mockedDeleteSection).toHaveBeenCalledWith("workflows");
+    expect(await screen.findByText("Uncategorized")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Checkout flow/i })).toBeInTheDocument();
+  });
+
+  it("reorders sidebar sections with drag and drop", async () => {
+    mockedListSections.mockResolvedValue([
+      { id: "second", name: "Second", createdAt: "2026-06-08T12:00:00.000Z" },
+      { id: "first", name: "First", createdAt: "2026-06-08T11:00:00.000Z" }
+    ]);
+    render(<App />);
+
+    const second = (await screen.findByText("Second")).closest(".sectionGroup");
+    const first = screen.getByText("First").closest(".sectionGroup");
+    const dataTransfer = createMockDataTransfer();
+
+    fireEvent.dragStart(second!, { dataTransfer });
+    fireEvent.drop(first!, { dataTransfer });
+
+    expect(mockedReorderSections).toHaveBeenCalledWith(["first", "second"]);
   });
 
   it("strips Markdown Mermaid fences from pasted LLM output", async () => {
@@ -194,7 +316,8 @@ describe("App", () => {
     await act(async () => {
       resolveSave!({
         name: "Delayed save",
-        filename: "Delayed save.mmd"
+        filename: "Delayed save.mmd",
+        sectionId: null
       });
     });
 
@@ -245,8 +368,8 @@ describe("App", () => {
     let resolveRefresh: (value: Awaited<ReturnType<typeof listDiagrams>>) => void;
     mockedListDiagrams
       .mockResolvedValueOnce([
-        { name: "Checkout flow", filename: "Checkout flow.mmd" },
-        { name: "Roadmap", filename: "Roadmap.mmd" }
+        { name: "Checkout flow", filename: "Checkout flow.mmd", sectionId: null },
+        { name: "Roadmap", filename: "Roadmap.mmd", sectionId: null }
       ])
       .mockImplementationOnce(
         () =>
@@ -256,7 +379,8 @@ describe("App", () => {
       );
     mockedSaveDiagram.mockResolvedValue({
       name: "Checkout flow",
-      filename: "Checkout flow.mmd"
+      filename: "Checkout flow.mmd",
+      sectionId: null
     });
 
     render(<App />);
@@ -273,7 +397,7 @@ describe("App", () => {
     expect(screen.getByText("New unsaved diagram")).toBeInTheDocument();
 
     await act(async () => {
-      resolveRefresh!([{ name: "Checkout flow", filename: "Checkout flow.mmd" }]);
+    resolveRefresh!([{ name: "Checkout flow", filename: "Checkout flow.mmd", sectionId: null }]);
     });
 
     await waitFor(() =>
@@ -324,6 +448,7 @@ describe("App", () => {
       resolveRoadmap!({
         name: "Roadmap",
         filename: "Roadmap.mmd",
+        sectionId: null,
         code: "graph LR\n  C --> D"
       });
     });
@@ -335,6 +460,7 @@ describe("App", () => {
       resolveCheckout!({
         name: "Checkout flow",
         filename: "Checkout flow.mmd",
+        sectionId: null,
         code: "flowchart TD\n  A --> B"
       });
     });
@@ -370,6 +496,7 @@ describe("App", () => {
       resolveCheckout!({
         name: "Checkout flow",
         filename: "Checkout flow.mmd",
+        sectionId: null,
         code: "flowchart TD\n  A --> B"
       });
     });
@@ -403,6 +530,7 @@ describe("App", () => {
       resolveCheckout!({
         name: "Checkout flow",
         filename: "Checkout flow.mmd",
+        sectionId: null,
         code: "flowchart TD\n  Deleted --> Loaded"
       });
     });

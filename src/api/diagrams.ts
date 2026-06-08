@@ -1,6 +1,7 @@
 export type DiagramSummary = {
   name: string;
   filename: string;
+  sectionId: string | null;
 };
 
 export type DiagramRecord = DiagramSummary & {
@@ -10,6 +11,12 @@ export type DiagramRecord = DiagramSummary & {
 type SaveDiagramInput = {
   name: string;
   code: string;
+};
+
+export type SectionSummary = {
+  id: string;
+  name: string;
+  createdAt: string;
 };
 
 async function readErrorMessage(response: Response) {
@@ -101,4 +108,68 @@ export async function deleteDiagram(name: string) {
   } catch (error) {
     throw wrapApiError(action, error);
   }
+}
+
+export function listSections() {
+  return fetchJson<SectionSummary[]>(
+    "/api/sections",
+    { method: "GET" },
+    "Failed to list sections"
+  );
+}
+
+export function createSection(name: string) {
+  return fetchJson<SectionSummary>(
+    "/api/sections",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ name })
+    },
+    `Failed to create section "${name}"`
+  );
+}
+
+export async function deleteSection(id: string) {
+  const action = "Failed to delete section";
+
+  try {
+    const response = await fetch(`/api/sections/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+    if (!response.ok) {
+      throw new Error(`${action}: ${await readErrorMessage(response)}`);
+    }
+  } catch (error) {
+    throw wrapApiError(action, error);
+  }
+}
+
+export function reorderSections(sectionIds: string[]) {
+  return fetchJson<SectionSummary[]>(
+    "/api/sections/order",
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ sectionIds })
+    },
+    "Failed to reorder sections"
+  );
+}
+
+export function assignDiagramToSection(name: string, sectionId: string | null) {
+  return fetchJson<DiagramSummary>(
+    `${diagramUrl(name)}/section`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ sectionId })
+    },
+    `Failed to move diagram "${name}"`
+  );
 }

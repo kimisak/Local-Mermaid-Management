@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -52,13 +52,14 @@ describe("createDiagramStore", () => {
       code: "flowchart TD\n  A[Blå] --> B[Grønn]"
     });
 
-    expect(saved).toEqual({ name: "system-flow", filename: "system-flow.mmd" });
+    expect(saved).toEqual({ name: "system-flow", filename: "system-flow.mmd", sectionId: null });
     expect(await store.listDiagrams()).toEqual([
-      { name: "system-flow", filename: "system-flow.mmd" }
+      { name: "system-flow", filename: "system-flow.mmd", sectionId: null }
     ]);
     expect(await store.readDiagram("system-flow")).toEqual({
       name: "system-flow",
       filename: "system-flow.mmd",
+      sectionId: null,
       code: "flowchart TD\n  A[Blå] --> B[Grønn]"
     });
 
@@ -66,7 +67,7 @@ describe("createDiagramStore", () => {
     await store.deleteDiagram("system-flow");
 
     expect(await store.listDiagrams()).toEqual([]);
-    expect(await readdir(root)).toEqual([]);
+    expect(await readdir(root)).toEqual([".sections.json"]);
   });
 
   it("creates the root directory when saving", async () => {
@@ -88,8 +89,46 @@ describe("createDiagramStore", () => {
     await writeFile(path.join(root, "alpha.mmd"), "graph TD;A-->B", "utf8");
 
     expect(await store.listDiagrams()).toEqual([
-      { name: "alpha", filename: "alpha.mmd" },
-      { name: "zeta", filename: "zeta.mmd" }
+      { name: "alpha", filename: "alpha.mmd", sectionId: null },
+      { name: "zeta", filename: "zeta.mmd", sectionId: null }
     ]);
+  });
+
+  it("stores sections and diagram assignments in local metadata", async () => {
+    const root = await createTempRoot();
+    const store = createDiagramStore(root);
+
+    await store.saveDiagram({ name: "Checkout", code: "flowchart TD\n  A --> B" });
+    const first = await store.createSection("Workflows");
+    const second = await store.createSection("Architecture");
+
+    expect(await store.listSections()).toEqual([second, first]);
+
+    await store.assignDiagramToSection("checkout", first.id);
+    expect(await store.listDiagrams()).toEqual([
+      { name: "checkout", filename: "checkout.mmd", sectionId: first.id }
+    ]);
+
+    await store.deleteSection(first.id);
+    expect(await store.listDiagrams()).toEqual([
+      { name: "checkout", filename: "checkout.mmd", sectionId: null }
+    ]);
+
+    const metadata = JSON.parse(await readFile(path.join(root, ".sections.json"), "utf8"));
+    expect(metadata.sections).toEqual([second]);
+    expect(metadata.assignments).toEqual({});
+  });
+
+  it("reorders sections", async () => {
+    const root = await createTempRoot();
+    const store = createDiagramStore(root);
+
+    const first = await store.createSection("First");
+    const second = await store.createSection("Second");
+    const third = await store.createSection("Third");
+
+    await store.reorderSections([first.id, third.id, second.id]);
+
+    expect(await store.listSections()).toEqual([first, third, second]);
   });
 });

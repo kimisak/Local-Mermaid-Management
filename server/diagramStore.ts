@@ -4,10 +4,17 @@ import path from "node:path";
 export type DiagramSummary = {
   name: string;
   filename: string;
+  sectionId: string | null;
 };
 
 export type DiagramRecord = DiagramSummary & {
   code: string;
+};
+
+export type SectionSummary = {
+  id: string;
+  name: string;
+  createdAt: string;
 };
 
 export type SaveDiagramInput = {
@@ -20,7 +27,19 @@ export type DiagramStore = {
   readDiagram(name: string): Promise<DiagramRecord>;
   saveDiagram(input: SaveDiagramInput): Promise<DiagramSummary>;
   deleteDiagram(name: string): Promise<void>;
+  listSections(): Promise<SectionSummary[]>;
+  createSection(name: string): Promise<SectionSummary>;
+  deleteSection(id: string): Promise<void>;
+  reorderSections(sectionIds: string[]): Promise<SectionSummary[]>;
+  assignDiagramToSection(name: string, sectionId: string | null): Promise<DiagramSummary>;
 };
+
+type SectionsMetadata = {
+  sections: SectionSummary[];
+  assignments: Record<string, string>;
+};
+
+const SECTIONS_METADATA_FILENAME = ".sections.json";
 
 export function sanitizeDiagramName(name: string): string {
   const sanitized = name
@@ -38,10 +57,11 @@ export function toDiagramFilename(name: string): string {
   return `${sanitizeDiagramName(name)}.mmd`;
 }
 
-function toSummary(filename: string): DiagramSummary {
+function toSummary(filename: string, sectionId: string | null = null): DiagramSummary {
   return {
     name: filename.replace(/\.mmd$/i, ""),
-    filename
+    filename,
+    sectionId
   };
 }
 
@@ -58,16 +78,75 @@ export function createDiagramStore(root: string): DiagramStore {
     };
   }
 
+  function resolveMetadataPath() {
+    return path.join(root, SECTIONS_METADATA_FILENAME);
+  }
+
+  async function readMetadata(): Promise<SectionsMetadata> {
+    await ensureRoot();
+
+    try {
+      const metadata = JSON.parse(await readFile(resolveMetadataPath(), "utf8")) as Partial<SectionsMetadata>;
+      return {
+        sections: Array.isArray(metadata.sections) ? metadata.sections : [],
+        assignments:
+          typeof metadata.assignments === "object" && metadata.assignments !== null
+            ? metadata.assignments
+            : {}
+      };
+    } catch (error) {
+      if (typeof error === "object" && error !== null && (error as NodeJS.ErrnoException).code === "ENOENT") {
+        return { sections: [], assignments: {} };
+      }
+
+      throw error;
+    }
+  }
+
+  async function writeMetadata(metadata: SectionsMetadata) {
+    await ensureRoot();
+    await writeFile(resolveMetadataPath(), `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+  }
+
+  async function diagramExists(name: string) {
+    const { filepath } = resolveDiagramPath(name);
+
+    try {
+      await readFile(filepath, "utf8");
+      return true;
+    } catch (error) {
+      if (typeof error === "object" && error !== null && (error as NodeJS.ErrnoException).code === "ENOENT") {
+        return false;
+      }
+
+      throw error;
+    }
+  }
+
+  function sectionExists(metadata: SectionsMetadata, sectionId: string) {
+    return metadata.sections.some((section) => section.id === sectionId);
+  }
+
+  function createSectionId(name: string, createdAt: string) {
+    return `${sanitizeDiagramName(name)}-${Date.parse(createdAt).toString(36)}`;
+  }
+
   return {
     async listDiagrams() {
       await ensureRoot();
       const entries = await readdir(root, { withFileTypes: true });
+      const metadata = await readMetadata();
+      const validSectionIds = new Set(metadata.sections.map((section) => section.id));
 
       return entries
         .filter((entry) => entry.isFile() && entry.name.endsWith(".mmd"))
         .map((entry) => entry.name)
         .sort((a, b) => a.localeCompare(b))
-        .map(toSummary);
+        .map((filename) => {
+          const name = filename.replace(/\.mmd$/i, "");
+          const sectionId = metadata.assignments[name] ?? null;
+          return toSummary(filename, sectionId && validSectionIds.has(sectionId) ? sectionId : null);
+        });
     },
 
     async readDiagram(name: string) {
@@ -76,7 +155,7 @@ export function createDiagramStore(root: string): DiagramStore {
       const code = await readFile(filepath, "utf8");
 
       return {
-        ...toSummary(filename),
+        ...toSummary(filename, (await readMetadata()).assignments[filename.replace(/\.mmd$/i, "")] ?? null),
         code
       };
     },
@@ -86,13 +165,88 @@ export function createDiagramStore(root: string): DiagramStore {
       const { filename, filepath } = resolveDiagramPath(input.name);
       await writeFile(filepath, input.code, "utf8");
 
-      return toSummary(filename);
+      return toSummary(filename, (await readMetadata()).assignments[filename.replace(/\.mmd$/i, "")] ?? null);
     },
 
     async deleteDiagram(name: string) {
       await ensureRoot();
       const { filepath } = resolveDiagramPath(name);
       await rm(filepath, { force: true });
+      const metadata = await readMetadata();
+      delete metadata.assignments[sanitizeDiagramName(name)];
+      await writeMetadata(metadata);
+    },
+
+    async listSections() {
+      const metadata = await readMetadata();
+      return metadata.sections;
+    },
+
+    async createSection(name: string) {
+      const trimmedName = name.trim();
+
+      if (trimmedName === "") {
+        throw Object.assign(new Error("section name is required"), { status: 400 });
+      }
+
+      const metadata = await readMetadata();
+      const createdAt = new Date().toISOString();
+      const section = {
+        id: createSectionId(trimmedName, createdAt),
+        name: trimmedName,
+        createdAt
+      };
+      metadata.sections = [section, ...metadata.sections];
+      await writeMetadata(metadata);
+      return section;
+    },
+
+    async deleteSection(id: string) {
+      const metadata = await readMetadata();
+      metadata.sections = metadata.sections.filter((section) => section.id !== id);
+
+      for (const [diagramName, sectionId] of Object.entries(metadata.assignments)) {
+        if (sectionId === id) {
+          delete metadata.assignments[diagramName];
+        }
+      }
+
+      await writeMetadata(metadata);
+    },
+
+    async reorderSections(sectionIds: string[]) {
+      const metadata = await readMetadata();
+      const sectionsById = new Map(metadata.sections.map((section) => [section.id, section]));
+      const ordered = sectionIds
+        .map((sectionId) => sectionsById.get(sectionId))
+        .filter((section): section is SectionSummary => Boolean(section));
+      const remaining = metadata.sections.filter((section) => !sectionIds.includes(section.id));
+
+      metadata.sections = [...ordered, ...remaining];
+      await writeMetadata(metadata);
+      return metadata.sections;
+    },
+
+    async assignDiagramToSection(name: string, sectionId: string | null) {
+      const metadata = await readMetadata();
+      const diagramName = sanitizeDiagramName(name);
+
+      if (!(await diagramExists(diagramName))) {
+        throw Object.assign(new Error("Diagram not found"), { status: 404 });
+      }
+
+      if (sectionId !== null && !sectionExists(metadata, sectionId)) {
+        throw Object.assign(new Error("Section not found"), { status: 404 });
+      }
+
+      if (sectionId === null) {
+        delete metadata.assignments[diagramName];
+      } else {
+        metadata.assignments[diagramName] = sectionId;
+      }
+
+      await writeMetadata(metadata);
+      return toSummary(toDiagramFilename(diagramName), sectionId);
     }
   };
 }
