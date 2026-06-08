@@ -227,11 +227,13 @@ export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
         className="previewSurface"
         aria-label="Diagram pan and zoom viewport"
         onWheel={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
           if (!svg) {
             return;
           }
 
-          event.preventDefault();
           const bounds = event.currentTarget.getBoundingClientRect();
           zoomBy(event.deltaY < 0 ? 0.1 : -0.1, {
             x: event.clientX - bounds.left,

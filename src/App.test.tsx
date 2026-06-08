@@ -605,6 +605,29 @@ describe("App", () => {
     expect(pointerDown.defaultPrevented).toBe(true);
   });
 
+  it("keeps diagram wheel zoom from scrolling the page", async () => {
+    const pageWheelListener = vi.fn();
+    document.addEventListener("wheel", pageWheelListener);
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: /mermaid code/i }), {
+      target: { value: "flowchart TD\n  A --> B" }
+    });
+    await screen.findByTestId("mock-svg");
+
+    const viewport = await screen.findByLabelText("Diagram pan and zoom viewport");
+    fireEvent.wheel(viewport, {
+      clientX: 200,
+      clientY: 150,
+      deltaY: 100
+    });
+
+    expect(pageWheelListener).not.toHaveBeenCalled();
+
+    document.removeEventListener("wheel", pageWheelListener);
+  });
+
   it("anchors toolbar zoom around the center of the preview viewport", async () => {
     render(<App />);
 
