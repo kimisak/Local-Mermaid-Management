@@ -16,6 +16,8 @@ import {
   listDiagrams,
   listSections,
   loadDiagram,
+  renameDiagram,
+  renameSection,
   reorderSections,
   saveDiagram,
   type DiagramSummary,
@@ -56,6 +58,8 @@ export default function App() {
   const [loadingList, setLoadingList] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageKind, setMessageKind] = useState<"status" | "error">("status");
+  const [editMode, setEditMode] = useState(false);
   const [editorPanePercent, setEditorPanePercent] = useState(initialEditorPanePercent);
   const [resizingSplit, setResizingSplit] = useState(false);
   const operationGenerationRef = useRef(0);
@@ -79,7 +83,7 @@ export default function App() {
       setDiagrams(nextDiagrams);
       setSections(nextSections);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
     } finally {
       setLoadingList(false);
     }
@@ -88,6 +92,25 @@ export default function App() {
   useEffect(() => {
     void refreshList();
   }, [refreshList]);
+
+  useEffect(() => {
+    if (!message || messageKind === "error") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setMessage(null), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [message, messageKind]);
+
+  function setStatusMessage(nextMessage: string | null) {
+    setMessageKind("status");
+    setMessage(nextMessage);
+  }
+
+  function setErrorMessage(error: unknown) {
+    setMessageKind("error");
+    setMessage(error instanceof Error ? error.message : String(error));
+  }
 
   useEffect(() => {
     if (!resizingSplit) {
@@ -141,7 +164,7 @@ export default function App() {
 
     const operationGeneration = beginOperation();
     setBusy(true);
-    setMessage(null);
+    setStatusMessage(null);
 
     try {
       const diagram = await loadDiagram(name);
@@ -157,7 +180,7 @@ export default function App() {
         return;
       }
 
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
     } finally {
       if (isCurrentOperation(operationGeneration)) {
         setBusy(false);
@@ -175,7 +198,7 @@ export default function App() {
     setCode("");
     setSavedCode("");
     setBusy(false);
-    setMessage(null);
+    setStatusMessage(null);
   }
 
   function persistCollapsedSections(nextCollapsedSectionIds: Set<string>) {
@@ -206,14 +229,14 @@ export default function App() {
     }
 
     setBusy(true);
-    setMessage(null);
+    setStatusMessage(null);
 
     try {
       const section = await createSection(name);
       setSections((currentSections) => [section, ...currentSections]);
-      setMessage(`Created "${section.name}".`);
+      setStatusMessage(`Created "${section.name}".`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
     } finally {
       setBusy(false);
     }
@@ -227,7 +250,7 @@ export default function App() {
     }
 
     setBusy(true);
-    setMessage(null);
+    setStatusMessage(null);
 
     try {
       await deleteSection(sectionId);
@@ -240,16 +263,16 @@ export default function App() {
       const nextCollapsedSectionIds = new Set(collapsedSectionIds);
       nextCollapsedSectionIds.delete(sectionId);
       persistCollapsedSections(nextCollapsedSectionIds);
-      setMessage(`Deleted section "${section.name}".`);
+      setStatusMessage(`Deleted section "${section.name}".`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
     } finally {
       setBusy(false);
     }
   }
 
   async function handleMoveDiagramToSection(name: string, sectionId: string | null) {
-    setMessage(null);
+    setStatusMessage(null);
 
     try {
       const moved = await assignDiagramToSection(name, sectionId);
@@ -257,7 +280,7 @@ export default function App() {
         currentDiagrams.map((diagram) => (diagram.name === moved.name ? moved : diagram))
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
     }
   }
 
@@ -282,7 +305,59 @@ export default function App() {
       setSections(await reorderSections(nextSections.map((section) => section.id)));
     } catch (error) {
       setSections(currentSections);
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
+    }
+  }
+
+  async function handleRenameDiagram(name: string) {
+    const nextName = window.prompt("Diagram name", name)?.trim() ?? "";
+
+    if (nextName === "" || nextName === name) {
+      return;
+    }
+
+    setBusy(true);
+    setStatusMessage(null);
+
+    try {
+      const renamed = await renameDiagram(name, nextName);
+      setDiagrams((currentDiagrams) =>
+        currentDiagrams.map((diagram) => (diagram.name === name ? renamed : diagram))
+      );
+
+      if (selectedName === name) {
+        setSelectedName(renamed.name);
+      }
+
+      setStatusMessage(`Renamed "${name}" to "${renamed.name}".`);
+    } catch (error) {
+      setErrorMessage(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRenameSection(sectionId: string) {
+    const section = sections.find((candidate) => candidate.id === sectionId);
+    const nextName = window.prompt("Section name", section?.name ?? "")?.trim() ?? "";
+
+    if (!section || nextName === "" || nextName === section.name) {
+      return;
+    }
+
+    setBusy(true);
+    setStatusMessage(null);
+
+    try {
+      const renamed = await renameSection(sectionId, nextName);
+      setSections((currentSections) =>
+        currentSections.map((candidate) => (candidate.id === sectionId ? renamed : candidate))
+      );
+      setStatusMessage(`Renamed section "${section.name}" to "${renamed.name}".`);
+    } catch (error) {
+      setErrorMessage(error);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -292,13 +367,13 @@ export default function App() {
     const name = selectedName ?? window.prompt("Diagram name", defaultName)?.trim() ?? "";
 
     if (name === "" || trimmedCode === "") {
-      setMessage("Add a diagram name and Mermaid code before saving.");
+      setStatusMessage("Add a diagram name and Mermaid code before saving.");
       return;
     }
 
     const operationGeneration = beginOperation();
     setBusy(true);
-    setMessage(null);
+    setStatusMessage(null);
     const savedCodeSnapshot = code;
 
     try {
@@ -314,13 +389,13 @@ export default function App() {
         return;
       }
 
-      setMessage("Saved.");
+      setStatusMessage("Saved.");
     } catch (error) {
       if (!isCurrentOperation(operationGeneration)) {
         return;
       }
 
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
     } finally {
       if (isCurrentOperation(operationGeneration)) {
         setBusy(false);
@@ -339,7 +414,7 @@ export default function App() {
 
     const operationGeneration = beginOperation();
     setBusy(true);
-    setMessage(null);
+    setStatusMessage(null);
 
     try {
       await deleteDiagram(name);
@@ -358,13 +433,13 @@ export default function App() {
         return;
       }
 
-      setMessage(`Deleted "${name}".`);
+      setStatusMessage(`Deleted "${name}".`);
     } catch (error) {
       if (!isCurrentOperation(operationGeneration)) {
         return;
       }
 
-      setMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage(error);
     } finally {
       if (isCurrentOperation(operationGeneration)) {
         setBusy(false);
@@ -380,12 +455,16 @@ export default function App() {
         collapsedSectionIds={collapsedSectionIds}
         selectedName={selectedName}
         loading={loadingList}
+        editMode={editMode}
         onCreate={handleCreate}
         onSelect={handleSelect}
+        onRename={handleRenameDiagram}
         onDelete={handleDelete}
         onCreateSection={handleCreateSection}
+        onRenameSection={handleRenameSection}
         onDeleteSection={handleDeleteSection}
         onToggleSection={handleToggleSection}
+        onToggleEditMode={() => setEditMode((current) => !current)}
         onMoveDiagramToSection={handleMoveDiagramToSection}
         onMoveSection={handleMoveSection}
       />
@@ -393,7 +472,17 @@ export default function App() {
       <section className="workspace" aria-label="Workspace">
         <header className="toolbar">
           <div className="documentTitle">
-            <span className="documentName">{selectedName ?? "Untitled diagram"}</span>
+            <button
+              className="documentName documentNameButton"
+              type="button"
+              onDoubleClick={() => {
+                if (selectedName) {
+                  void handleRenameDiagram(selectedName);
+                }
+              }}
+            >
+              {selectedName ?? "Untitled diagram"}
+            </button>
             <span className={`statusPill ${isDirty ? "isDirty" : ""}`}>{statusLabel}</span>
           </div>
           <button className="primaryButton" type="button" onClick={handleSave} disabled={busy}>
@@ -403,7 +492,7 @@ export default function App() {
         </header>
 
         {message ? (
-          <div className="appMessage" role="status">
+          <div className={`appMessage ${messageKind === "error" ? "isError" : ""}`} role="status">
             {message}
           </div>
         ) : null}

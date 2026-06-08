@@ -117,6 +117,43 @@ describe("diagram API", () => {
       .expect([{ name: "checkout", filename: "checkout.mmd", sectionId: null }]);
   });
 
+  it("renames diagrams and sections", async () => {
+    const root = await createTempRoot();
+    const app = createApp(root);
+
+    await request(app)
+      .post("/api/diagrams")
+      .send({ name: "Checkout", code: "flowchart TD\n  A --> B" })
+      .expect(200);
+    const section = await request(app).post("/api/sections").send({ name: "Workflows" }).expect(200);
+    await request(app)
+      .patch("/api/diagrams/checkout/section")
+      .send({ sectionId: section.body.id })
+      .expect(200);
+
+    await request(app)
+      .patch("/api/diagrams/checkout")
+      .send({ name: "Checkout v2" })
+      .expect(200)
+      .expect({ name: "checkout-v2", filename: "checkout-v2.mmd", sectionId: section.body.id });
+
+    await request(app)
+      .get("/api/diagrams/checkout-v2")
+      .expect(200)
+      .expect({
+        name: "checkout-v2",
+        filename: "checkout-v2.mmd",
+        sectionId: section.body.id,
+        code: "flowchart TD\n  A --> B"
+      });
+
+    await request(app)
+      .patch(`/api/sections/${section.body.id}`)
+      .send({ name: "Renamed" })
+      .expect(200)
+      .expect({ ...section.body, name: "Renamed" });
+  });
+
   it("returns sanitized JSON for unexpected filesystem errors", async () => {
     const root = path.join(await createTempRoot(), "not-a-directory");
     await writeFile(root, "file blocks directory creation", "utf8");

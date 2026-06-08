@@ -11,6 +11,8 @@ import {
   listDiagrams,
   listSections,
   loadDiagram,
+  renameDiagram,
+  renameSection,
   reorderSections,
   saveDiagram
 } from "./api/diagrams";
@@ -23,6 +25,8 @@ vi.mock("./api/diagrams", () => ({
   listDiagrams: vi.fn(),
   listSections: vi.fn(),
   loadDiagram: vi.fn(),
+  renameDiagram: vi.fn(),
+  renameSection: vi.fn(),
   saveDiagram: vi.fn(),
   deleteDiagram: vi.fn(),
   deleteSection: vi.fn(),
@@ -53,6 +57,8 @@ const mockedCreateSection = vi.mocked(createSection);
 const mockedListDiagrams = vi.mocked(listDiagrams);
 const mockedListSections = vi.mocked(listSections);
 const mockedLoadDiagram = vi.mocked(loadDiagram);
+const mockedRenameDiagram = vi.mocked(renameDiagram);
+const mockedRenameSection = vi.mocked(renameSection);
 const mockedSaveDiagram = vi.mocked(saveDiagram);
 const mockedDeleteDiagram = vi.mocked(deleteDiagram);
 const mockedDeleteSection = vi.mocked(deleteSection);
@@ -102,6 +108,16 @@ describe("App", () => {
     });
     mockedDeleteDiagram.mockResolvedValue(undefined);
     mockedDeleteSection.mockResolvedValue(undefined);
+    mockedRenameDiagram.mockImplementation(async (_name, nextName) => ({
+      name: nextName,
+      filename: `${nextName}.mmd`,
+      sectionId: null
+    }));
+    mockedRenameSection.mockImplementation(async (id, nextName) => ({
+      id,
+      name: nextName,
+      createdAt: "2026-06-08T12:00:00.000Z"
+    }));
     mockedCreateSection.mockResolvedValue({
       id: "workflows",
       name: "Workflows",
@@ -160,6 +176,69 @@ describe("App", () => {
     expect(await screen.findByText("Workflows")).toBeInTheDocument();
   });
 
+  it("hides delete controls until sidebar edit mode is enabled", async () => {
+    render(<App />);
+
+    await screen.findByRole("button", { name: /^Checkout flow/i });
+    expect(screen.queryByRole("button", { name: /delete Checkout flow/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /show delete controls/i }));
+
+    expect(screen.getByRole("button", { name: /delete Checkout flow/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /hide delete controls/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+  });
+
+  it("renames the selected diagram from the document title", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue("Checkout renamed");
+    mockedRenameDiagram.mockResolvedValueOnce({
+      name: "checkout-renamed",
+      filename: "checkout-renamed.mmd",
+      sectionId: null
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Checkout flow/i }));
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Checkout flow" }));
+
+    expect(mockedRenameDiagram).toHaveBeenCalledWith("Checkout flow", "Checkout renamed");
+    expect(await screen.findByRole("button", { name: "checkout-renamed" })).toBeInTheDocument();
+  });
+
+  it("renames a sidebar section with double click", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue("Flows");
+    mockedListSections.mockResolvedValue([
+      { id: "workflows", name: "Workflows", createdAt: "2026-06-08T12:00:00.000Z" }
+    ]);
+    mockedRenameSection.mockResolvedValueOnce({
+      id: "workflows",
+      name: "Flows",
+      createdAt: "2026-06-08T12:00:00.000Z"
+    });
+    render(<App />);
+
+    fireEvent.doubleClick(await screen.findByRole("button", { name: /collapse Workflows/i }));
+
+    expect(mockedRenameSection).toHaveBeenCalledWith("workflows", "Flows");
+    expect(await screen.findByText("Flows")).toBeInTheDocument();
+  });
+
+  it("clears status messages after three seconds", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue("Workflows");
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /new section/i }));
+
+    expect(await screen.findByText('Created "Workflows".')).toBeInTheDocument();
+
+    await waitFor(
+      () => expect(screen.queryByText('Created "Workflows".')).not.toBeInTheDocument(),
+      { timeout: 3500 }
+    );
+  });
+
   it("collapses and expands a sidebar section", async () => {
     mockedListSections.mockResolvedValue([
       { id: "workflows", name: "Workflows", createdAt: "2026-06-08T12:00:00.000Z" }
@@ -203,6 +282,7 @@ describe("App", () => {
     ]);
     render(<App />);
 
+    await userEvent.click(await screen.findByRole("button", { name: /show delete controls/i }));
     await userEvent.click(await screen.findByRole("button", { name: /delete section Workflows/i }));
 
     expect(mockedDeleteSection).toHaveBeenCalledWith("workflows");
@@ -345,6 +425,7 @@ describe("App", () => {
       "flowchart TD\n  A --> B"
     );
 
+    await userEvent.click(screen.getByRole("button", { name: /show delete controls/i }));
     await userEvent.click(screen.getByRole("button", { name: /delete Checkout flow/i }));
     await waitFor(() => expect(mockedDeleteDiagram).toHaveBeenCalledWith("Checkout flow"));
     await userEvent.click(screen.getByRole("button", { name: /new diagram/i }));
@@ -522,6 +603,7 @@ describe("App", () => {
     const editor = await screen.findByRole("textbox", { name: /mermaid code/i });
     await userEvent.type(editor, "flowchart LR\n  Current --> Draft");
     await userEvent.click(screen.getByRole("button", { name: /^Checkout flow/i }));
+    await userEvent.click(screen.getByRole("button", { name: /show delete controls/i }));
     await userEvent.click(screen.getByRole("button", { name: /delete Checkout flow/i }));
 
     await waitFor(() => expect(mockedDeleteDiagram).toHaveBeenCalledWith("Checkout flow"));
@@ -557,6 +639,7 @@ describe("App", () => {
     await userEvent.type(screen.getByRole("textbox", { name: /mermaid code/i }), "\n  B --> C");
 
     const roadmapItem = screen.getByRole("listitem", { name: /Roadmap/ });
+    await userEvent.click(screen.getByRole("button", { name: /show delete controls/i }));
     await userEvent.click(
       within(roadmapItem).getByRole("button", { name: /delete Roadmap/i })
     );
@@ -815,6 +898,7 @@ describe("App", () => {
     const checkoutItem = await screen.findByRole("listitem", {
       name: /Checkout flow/
     });
+    await userEvent.click(screen.getByRole("button", { name: /show delete controls/i }));
     await userEvent.click(
       within(checkoutItem).getByRole("button", { name: /delete Checkout flow/i })
     );

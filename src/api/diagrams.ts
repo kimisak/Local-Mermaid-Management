@@ -96,6 +96,20 @@ export function saveDiagram(input: SaveDiagramInput) {
   );
 }
 
+export function renameDiagram(name: string, nextName: string) {
+  return fetchJson<DiagramSummary>(
+    diagramUrl(name),
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ name: nextName })
+    },
+    `Failed to rename diagram "${name}"`
+  );
+}
+
 export async function deleteDiagram(name: string) {
   const action = `Failed to delete diagram "${name}"`;
 
@@ -129,6 +143,20 @@ export function createSection(name: string) {
       body: JSON.stringify({ name })
     },
     `Failed to create section "${name}"`
+  );
+}
+
+export function renameSection(id: string, nextName: string) {
+  return fetchJson<SectionSummary>(
+    `/api/sections/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ name: nextName })
+    },
+    "Failed to rename section"
   );
 }
 

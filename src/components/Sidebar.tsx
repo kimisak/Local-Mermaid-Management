@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FilePlus2, FolderPlus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FilePlus2, FolderPlus, Pencil, Trash2 } from "lucide-react";
 import type { DiagramSummary, SectionSummary } from "../api/diagrams";
 
 type SidebarProps = {
@@ -7,12 +7,16 @@ type SidebarProps = {
   collapsedSectionIds: Set<string>;
   selectedName: string | null;
   loading: boolean;
+  editMode: boolean;
   onCreate: () => void;
   onSelect: (name: string) => void;
+  onRename: (name: string) => void;
   onDelete: (name: string) => void;
   onCreateSection: () => void;
+  onRenameSection: (sectionId: string) => void;
   onDeleteSection: (sectionId: string) => void;
   onToggleSection: (sectionId: string) => void;
+  onToggleEditMode: () => void;
   onMoveDiagramToSection: (name: string, sectionId: string | null) => void;
   onMoveSection: (sectionId: string, targetSectionId: string) => void;
 };
@@ -23,12 +27,16 @@ export function Sidebar({
   collapsedSectionIds,
   selectedName,
   loading,
+  editMode,
   onCreate,
   onSelect,
+  onRename,
   onDelete,
   onCreateSection,
+  onRenameSection,
   onDeleteSection,
   onToggleSection,
+  onToggleEditMode,
   onMoveDiagramToSection,
   onMoveSection
 }: SidebarProps) {
@@ -44,19 +52,22 @@ export function Sidebar({
           onDragStart={(event) => {
             event.dataTransfer.setData("application/x-mermaid-diagram", diagram.name);
           }}
+          onDoubleClick={() => onRename(diagram.name)}
           onClick={() => onSelect(diagram.name)}
         >
           <span className="diagramName">{diagram.name}</span>
           <span className="diagramFilename">{diagram.filename}</span>
         </button>
-        <button
-          className="iconButton subtle"
-          type="button"
-          onClick={() => onDelete(diagram.name)}
-          aria-label={`Delete ${diagram.name}`}
-        >
-          <Trash2 size={16} aria-hidden="true" />
-        </button>
+        {editMode ? (
+          <button
+            className="iconButton subtle"
+            type="button"
+            onClick={() => onDelete(diagram.name)}
+            aria-label={`Delete ${diagram.name}`}
+          >
+            <Trash2 size={16} aria-hidden="true" />
+          </button>
+        ) : null}
       </li>
     );
   }
@@ -74,6 +85,15 @@ export function Sidebar({
           </button>
           <button className="iconButton" type="button" onClick={onCreate} aria-label="New diagram">
             <FilePlus2 size={18} aria-hidden="true" />
+          </button>
+          <button
+            className={`iconButton ${editMode ? "isActive" : ""}`}
+            type="button"
+            onClick={onToggleEditMode}
+            aria-label={editMode ? "Hide delete controls" : "Show delete controls"}
+            aria-pressed={editMode}
+          >
+            <Pencil size={17} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -127,6 +147,7 @@ export function Sidebar({
                   className="sectionToggle"
                   type="button"
                   onClick={() => onToggleSection(section.id)}
+                  onDoubleClick={() => onRenameSection(section.id)}
                   aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${section.name}`}
                 >
                   {isCollapsed ? (
@@ -137,14 +158,16 @@ export function Sidebar({
                   <span className="sectionTitle">{section.name}</span>
                 </button>
                 <span className="sectionCount">{sectionDiagrams.length}</span>
-                <button
-                  className="iconButton subtle"
-                  type="button"
-                  onClick={() => onDeleteSection(section.id)}
-                  aria-label={`Delete section ${section.name}`}
-                >
-                  <Trash2 size={15} aria-hidden="true" />
-                </button>
+                {editMode ? (
+                  <button
+                    className="iconButton subtle"
+                    type="button"
+                    onClick={() => onDeleteSection(section.id)}
+                    aria-label={`Delete section ${section.name}`}
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                  </button>
+                ) : null}
               </div>
               {!isCollapsed ? (
                 <ul className="sectionDiagramList">{sectionDiagrams.map(renderDiagram)}</ul>

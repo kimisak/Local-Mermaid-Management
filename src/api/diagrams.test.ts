@@ -7,6 +7,8 @@ import {
   listDiagrams,
   listSections,
   loadDiagram,
+  renameDiagram,
+  renameSection,
   reorderSections,
   saveDiagram
 } from "./diagrams";
@@ -71,6 +73,17 @@ describe("diagram API errors", () => {
 
     await expect(assignDiagramToSection("checkout", "workflows")).rejects.toThrow(
       "Failed to move diagram \"checkout\": offline"
+    );
+  });
+
+  it("wraps rename failures with operation context", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+
+    await expect(renameDiagram("checkout", "checkout v2")).rejects.toThrow(
+      "Failed to rename diagram \"checkout\": offline"
+    );
+    await expect(renameSection("workflows", "Workflows v2")).rejects.toThrow(
+      "Failed to rename section: offline"
     );
   });
 });

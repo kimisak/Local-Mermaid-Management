@@ -163,7 +163,7 @@ button:disabled {
 
 .diagramListItem {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 36px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
   align-items: stretch;
 }
@@ -222,6 +222,12 @@ button:disabled {
   color: #7a4d55;
 }
 
+.iconButton.isActive {
+  border-color: #26706f;
+  background: #e7f3f1;
+  color: #26706f;
+}
+
 .workspace {
   display: flex;
   min-width: 0;
@@ -246,6 +252,20 @@ button:disabled {
 .documentName {
   font-size: 1.05rem;
   font-weight: 800;
+}
+
+.documentNameButton {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.documentNameButton:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #26706f;
+  outline-offset: 3px;
 }
 
 .statusPill {
@@ -288,6 +308,11 @@ button:disabled {
   background: #fffaf0;
   color: #684b16;
   padding: 10px 20px;
+}
+
+.appMessage.isError {
+  background: #fff1f1;
+  color: #682525;
 }
 
 .splitView {

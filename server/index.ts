@@ -33,6 +33,10 @@ function isSectionInput(body: unknown): body is { name: string } {
   );
 }
 
+function isRenameInput(body: unknown): body is { name: string } {
+  return isSectionInput(body);
+}
+
 function isSectionAssignmentInput(body: unknown): body is { sectionId: string | null } {
   return (
     typeof body === "object" &&
@@ -95,6 +99,18 @@ export function createApp(diagramsRoot = DEFAULT_DIAGRAMS_ROOT) {
   });
 
   app.patch(
+    "/api/diagrams/:name",
+    async (request: Request<{ name: string }>, response: Response) => {
+      if (!isRenameInput(request.body)) {
+        response.status(400).json({ error: "name must be a string" });
+        return;
+      }
+
+      response.json(await store.renameDiagram(request.params.name, request.body.name));
+    }
+  );
+
+  app.patch(
     "/api/diagrams/:name/section",
     async (request: Request<{ name: string }>, response: Response) => {
       if (!isSectionAssignmentInput(request.body)) {
@@ -128,6 +144,18 @@ export function createApp(diagramsRoot = DEFAULT_DIAGRAMS_ROOT) {
 
     response.json(await store.createSection(request.body.name));
   });
+
+  app.patch(
+    "/api/sections/:id",
+    async (request: Request<{ id: string }>, response: Response) => {
+      if (!isRenameInput(request.body)) {
+        response.status(400).json({ error: "name must be a string" });
+        return;
+      }
+
+      response.json(await store.renameSection(request.params.id, request.body.name));
+    }
+  );
 
   app.put("/api/sections/order", async (request: Request, response: Response) => {
     if (!isSectionOrderInput(request.body)) {

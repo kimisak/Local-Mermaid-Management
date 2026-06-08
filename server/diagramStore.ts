@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export type DiagramSummary = {
@@ -26,9 +26,11 @@ export type DiagramStore = {
   listDiagrams(): Promise<DiagramSummary[]>;
   readDiagram(name: string): Promise<DiagramRecord>;
   saveDiagram(input: SaveDiagramInput): Promise<DiagramSummary>;
+  renameDiagram(name: string, nextName: string): Promise<DiagramSummary>;
   deleteDiagram(name: string): Promise<void>;
   listSections(): Promise<SectionSummary[]>;
   createSection(name: string): Promise<SectionSummary>;
+  renameSection(id: string, nextName: string): Promise<SectionSummary>;
   deleteSection(id: string): Promise<void>;
   reorderSections(sectionIds: string[]): Promise<SectionSummary[]>;
   assignDiagramToSection(name: string, sectionId: string | null): Promise<DiagramSummary>;
@@ -168,6 +170,32 @@ export function createDiagramStore(root: string): DiagramStore {
       return toSummary(filename, (await readMetadata()).assignments[filename.replace(/\.mmd$/i, "")] ?? null);
     },
 
+    async renameDiagram(name: string, nextName: string) {
+      const trimmedName = nextName.trim();
+
+      if (trimmedName === "") {
+        throw Object.assign(new Error("diagram name is required"), { status: 400 });
+      }
+
+      await ensureRoot();
+      const current = resolveDiagramPath(name);
+      const next = resolveDiagramPath(trimmedName);
+      const currentName = current.filename.replace(/\.mmd$/i, "");
+      const nextDiagramName = next.filename.replace(/\.mmd$/i, "");
+      await rename(current.filepath, next.filepath);
+
+      const metadata = await readMetadata();
+      const sectionId = metadata.assignments[currentName] ?? null;
+      delete metadata.assignments[currentName];
+
+      if (sectionId) {
+        metadata.assignments[nextDiagramName] = sectionId;
+      }
+
+      await writeMetadata(metadata);
+      return toSummary(next.filename, sectionId);
+    },
+
     async deleteDiagram(name: string) {
       await ensureRoot();
       const { filepath } = resolveDiagramPath(name);
@@ -197,6 +225,25 @@ export function createDiagramStore(root: string): DiagramStore {
         createdAt
       };
       metadata.sections = [section, ...metadata.sections];
+      await writeMetadata(metadata);
+      return section;
+    },
+
+    async renameSection(id: string, nextName: string) {
+      const trimmedName = nextName.trim();
+
+      if (trimmedName === "") {
+        throw Object.assign(new Error("section name is required"), { status: 400 });
+      }
+
+      const metadata = await readMetadata();
+      const section = metadata.sections.find((candidate) => candidate.id === id);
+
+      if (!section) {
+        throw Object.assign(new Error("Section not found"), { status: 404 });
+      }
+
+      section.name = trimmedName;
       await writeMetadata(metadata);
       return section;
     },

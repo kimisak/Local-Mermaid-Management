@@ -12,6 +12,8 @@ This app is built for personal use on your own machine. It is not designed for h
 - Browse, group, move, and delete saved diagrams from the sidebar.
 - Create collapsible sidebar sections and drag diagrams into them.
 - Reorder sidebar sections with drag and drop. New sections appear first by default.
+- Rename diagrams and sections with double-click.
+- Keep delete controls hidden until sidebar edit mode is enabled.
 - Copy Mermaid source code to the clipboard.
 - Export rendered diagrams as SVG, PNG, or WebP.
 - Use Mermaid frontmatter `title` as the default name for unsaved diagrams.
@@ -35,6 +37,13 @@ diagrams/.sections.json
 ```
 
 Diagram files stay flat in `diagrams/`; moving a diagram into a section only updates metadata. Deleting a section moves its diagrams back to the default Uncategorized area.
+
+## Sidebar Organization
+
+- Double-click a diagram name in the sidebar, or the selected diagram title in the main toolbar, to rename it.
+- Double-click a section name to rename the section.
+- Use the sidebar edit toggle to show or hide delete buttons.
+- Success messages such as saved, renamed, created, and deleted clear automatically after three seconds.
 
 By default, this repository ignores saved diagram files:
 

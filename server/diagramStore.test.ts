@@ -119,6 +119,42 @@ describe("createDiagramStore", () => {
     expect(metadata.assignments).toEqual({});
   });
 
+  it("renames a diagram and preserves its section assignment", async () => {
+    const root = await createTempRoot();
+    const store = createDiagramStore(root);
+
+    await store.saveDiagram({ name: "Checkout", code: "flowchart TD\n  A --> B" });
+    const section = await store.createSection("Workflows");
+    await store.assignDiagramToSection("checkout", section.id);
+
+    const renamed = await store.renameDiagram("checkout", "Checkout v2");
+
+    expect(renamed).toEqual({
+      name: "checkout-v2",
+      filename: "checkout-v2.mmd",
+      sectionId: section.id
+    });
+    expect(await store.readDiagram("checkout-v2")).toEqual({
+      ...renamed,
+      code: "flowchart TD\n  A --> B"
+    });
+    await expect(store.readDiagram("checkout")).rejects.toMatchObject({ code: "ENOENT" });
+
+    const metadata = JSON.parse(await readFile(path.join(root, ".sections.json"), "utf8"));
+    expect(metadata.assignments).toEqual({ "checkout-v2": section.id });
+  });
+
+  it("renames a section", async () => {
+    const root = await createTempRoot();
+    const store = createDiagramStore(root);
+    const section = await store.createSection("Old name");
+
+    const renamed = await store.renameSection(section.id, "New name");
+
+    expect(renamed).toEqual({ ...section, name: "New name" });
+    expect(await store.listSections()).toEqual([renamed]);
+  });
+
   it("reorders sections", async () => {
     const root = await createTempRoot();
     const store = createDiagramStore(root);
