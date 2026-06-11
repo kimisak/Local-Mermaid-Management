@@ -89,11 +89,7 @@ export function noteCategoryLabel(categoryId: NoteCategoryId) {
 }
 
 export function briefCategoryGuideMarkdown() {
-  return [
-    "Use these optional brief categories when writing concise markdown notes for the Mermaid diagram.",
-    "Treat these categories as writing guidance, not a required schema. You may also create your own top-level # headings when they fit the diagram better.",
-    ...noteCategories.map((category) => `# ${category.label}\n${category.description}`)
-  ].join("\n\n");
+  return noteCategories.map((category) => `# ${category.label}\n${category.description}`).join("\n\n");
 }
 
 function normalizeHeading(value: string) {

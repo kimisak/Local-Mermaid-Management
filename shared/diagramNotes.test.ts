@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBriefMarkdown } from "./diagramNotes";
+import { briefCategoryGuideMarkdown, parseBriefMarkdown } from "./diagramNotes";
 
 describe("parseBriefMarkdown", () => {
   it("parses recognized category headings and keeps markdown content inside each section", () => {
@@ -64,5 +64,43 @@ Some text.
         markdown: "- Overbooking [P0-1]"
       }
     ]);
+  });
+
+  it("formats the category guide as plain markdown headings and descriptions", () => {
+    expect(briefCategoryGuideMarkdown()).toBe(`# General Note
+Use when the consideration does not fit another category.
+
+# Business Rule
+A domain rule, policy, or invariant that must be true for the process or system.
+
+# Assumption
+Something the diagram depends on but does not prove or fully describe.
+
+# Limitation
+A known constraint, simplification, excluded scenario, or scope boundary.
+
+# Constraint
+A restriction the process, solution, or system must respect.
+
+# Pain Point
+A current problem, friction, inefficiency, ambiguity, or failure mode.
+
+# Decision
+A selected design, product, process, or architecture choice captured with the diagram.
+
+# Open Question
+An unresolved issue that needs clarification, validation, or follow-up.
+
+# Element Note
+A note about a specific node, entity, relation, edge, actor, system, process step, or other diagram element.
+
+# Boundary / Edge Case
+Boundary values, equivalence cases, exceptions, alternate paths, or error conditions.
+
+# Data / Integration
+Inputs, outputs, payloads, events, APIs, files, systems, or dependencies.
+
+# Compliance / Policy
+Legal, security, privacy, audit, governance, regulatory, or internal policy considerations.`);
   });
 });

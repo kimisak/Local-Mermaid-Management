@@ -769,15 +769,9 @@ describe("App", () => {
       target: { value: "---\ntitle: Export Flow\n---\nflowchart TD\n  A --> B" }
     });
     await userEvent.click(screen.getByRole("button", { name: /brief/i }));
-    await userEvent.selectOptions(screen.getByLabelText(/brief category/i), "business-rule");
-    expect(screen.getByLabelText(/brief category/i)).toHaveAttribute(
-      "title",
-      expect.stringContaining("domain rule")
-    );
-    await userEvent.click(screen.getByRole("button", { name: /insert category/i }));
     await userEvent.type(
       screen.getByRole("textbox", { name: /brief markdown/i }),
-      "1. Bookings after cutoff are rejected."
+      "# Business Rule\n1. Bookings after cutoff are rejected."
     );
 
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -805,7 +799,7 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: /copy category guide/i }));
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringContaining("Use these optional brief categories")
+      expect.stringMatching(/^# General Note\nUse when the consideration does not fit another category\./)
     );
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining("# Business Rule")
@@ -816,6 +810,11 @@ describe("App", () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining("# Compliance / Policy")
     );
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalledWith(
+      expect.stringContaining("Treat these categories as writing guidance")
+    );
+    expect(screen.queryByLabelText(/brief category/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /insert category/i })).not.toBeInTheDocument();
   });
 
   it("can place the brief to the left or above the rendered diagram", async () => {
