@@ -23,8 +23,8 @@ describe("serializeSvgWithNotes", () => {
       "left"
     );
 
-    expect(exported).toContain('viewBox="0 0 1848 128"');
-    expect(exported).toContain('<svg x="948" y="0"');
+    expect(exported).toContain('viewBox="0 0 568 128"');
+    expect(exported).toContain('<svg x="468" y="0"');
     expect(exported).toContain('x="24"');
     expect(exported).toContain("Constraint");
   });

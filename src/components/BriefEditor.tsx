@@ -1,6 +1,6 @@
-import { Plus } from "lucide-react";
+import { Copy, Plus } from "lucide-react";
 import { useRef, useState } from "react";
-import { noteCategories, type NoteCategoryId } from "../../shared/diagramNotes";
+import { briefCategoryGuideMarkdown, noteCategories, type NoteCategoryId } from "../../shared/diagramNotes";
 
 type BriefEditorProps = {
   markdown: string;
@@ -32,6 +32,10 @@ export function BriefEditor({ markdown, onChange }: BriefEditorProps) {
     });
   }
 
+  async function copyCategoryGuide() {
+    await navigator.clipboard.writeText(briefCategoryGuideMarkdown());
+  }
+
   return (
     <section className="editorPane" aria-label="Brief editor">
       <div className="paneHeader">
@@ -55,6 +59,10 @@ export function BriefEditor({ markdown, onChange }: BriefEditorProps) {
           <button className="toolButton" type="button" onClick={insertCategory}>
             <Plus size={16} aria-hidden="true" />
             Insert category
+          </button>
+          <button className="toolButton" type="button" onClick={copyCategoryGuide}>
+            <Copy size={16} aria-hidden="true" />
+            Copy category guide
           </button>
         </div>
       </div>

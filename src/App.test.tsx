@@ -798,6 +798,26 @@ describe("App", () => {
     expect(exported).toContain("Bookings after cutoff are rejected.");
   });
 
+  it("copies the brief category guide for use in an LLM prompt", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /brief/i }));
+    await userEvent.click(screen.getByRole("button", { name: /copy category guide/i }));
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("Use these optional brief categories")
+    );
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("# Business Rule")
+    );
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("A domain rule, policy, or invariant")
+    );
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("# Compliance / Policy")
+    );
+  });
+
   it("can place the brief to the left or above the rendered diagram", async () => {
     render(<App />);
 
@@ -812,7 +832,7 @@ describe("App", () => {
     await userEvent.click(screen.getByLabelText(/brief view/i));
 
     await userEvent.selectOptions(screen.getByLabelText(/brief placement/i), "left");
-    expect(await screen.findByLabelText(/rendered diagram with brief/i)).toContainHTML('<svg x="948" y="0"');
+    expect(await screen.findByLabelText(/rendered diagram with brief/i)).toContainHTML('<svg x="468" y="0"');
 
     await userEvent.selectOptions(screen.getByLabelText(/brief placement/i), "above");
     expect(await screen.findByLabelText(/rendered diagram with brief/i)).toContainHTML('<svg x="0" y="');

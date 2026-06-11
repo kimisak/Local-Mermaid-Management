@@ -2,7 +2,8 @@ import { parseBriefMarkdown, type BriefPlacement } from "../../shared/diagramNot
 import { serializeSvgForDownload } from "./svgExport";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-const NOTE_WIDTH = 900;
+const STACKED_NOTE_WIDTH = 900;
+const LEFT_NOTE_WIDTH = 420;
 const NOTE_MARGIN = 24;
 const LINE_HEIGHT = 18;
 
@@ -112,14 +113,14 @@ function svgDimensions(svgText: string) {
   const viewBox = svg?.getAttribute("viewBox")?.split(/\s+/).map(Number);
 
   if (viewBox?.length === 4 && viewBox.every(Number.isFinite)) {
-    return { width: Math.max(viewBox[2], NOTE_WIDTH), height: viewBox[3] };
+    return { width: viewBox[2], height: viewBox[3] };
   }
 
   const width = Number.parseFloat(svg?.getAttribute("width") ?? "");
   const height = Number.parseFloat(svg?.getAttribute("height") ?? "");
 
   return {
-    width: Number.isFinite(width) ? Math.max(width, NOTE_WIDTH) : NOTE_WIDTH,
+    width: Number.isFinite(width) ? width : STACKED_NOTE_WIDTH,
     height: Number.isFinite(height) ? height : 500
   };
 }
@@ -137,6 +138,8 @@ export function serializeSvgWithNotes(
   }
 
   const { width, height } = svgDimensions(serializedSvg);
+  const noteWidth = placement === "left" ? LEFT_NOTE_WIDTH : STACKED_NOTE_WIDTH;
+  const wrapLength = placement === "left" ? 48 : 96;
   const notesX = NOTE_MARGIN;
   let y = placement === "below" ? height + NOTE_MARGIN : NOTE_MARGIN;
   let noteHeight = y;
@@ -147,14 +150,14 @@ export function serializeSvgWithNotes(
     noteText.push(textElement(notesX, y, section.label, { size: 15, weight: 700 }));
     y += LINE_HEIGHT;
 
-    y = renderMarkdownBlock(noteText, section.markdown, notesX, y, 96);
+    y = renderMarkdownBlock(noteText, section.markdown, notesX, y, wrapLength);
     y += 12;
   }
   noteHeight = y;
 
-  const diagramX = placement === "left" ? NOTE_WIDTH + NOTE_MARGIN * 2 : 0;
+  const diagramX = placement === "left" ? noteWidth + NOTE_MARGIN * 2 : 0;
   const diagramY = placement === "above" ? noteHeight + NOTE_MARGIN : 0;
-  const finalWidth = placement === "left" ? diagramX + width : width;
+  const finalWidth = placement === "left" ? diagramX + width : Math.max(width, noteWidth);
   const finalHeight =
     placement === "left"
       ? Math.max(height, noteHeight + NOTE_MARGIN)
