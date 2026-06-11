@@ -14,8 +14,8 @@ This app is built for personal use on your own machine. It is not designed for h
 - Reorder sidebar sections with drag and drop. New sections appear first by default.
 - Rename diagrams and sections with double-click.
 - Keep delete controls hidden until sidebar edit mode is enabled.
-- Add typed notes below diagrams for business rules, assumptions, limitations, pain points, decisions, open questions, element notes, boundary/edge cases, data/integration, and compliance/policy considerations.
-- Export diagram-only files or combined diagram + notes files.
+- Add markdown brief notes for business rules, assumptions, limitations, pain points, decisions, open questions, element notes, boundary/edge cases, constraints, data/integration, and compliance/policy considerations.
+- Toggle brief notes into the preview and export exactly what is visible.
 - Copy Mermaid source code to the clipboard.
 - Export rendered diagrams as SVG, PNG, or WebP.
 - Use Mermaid frontmatter `title` as the default name for unsaved diagrams.
@@ -46,7 +46,7 @@ Diagram notes are stored as sidecar files next to the diagram:
 diagrams/<diagram-name>.notes.json
 ```
 
-Notes are typed blocks with a category, title, and body. Category selectors include hover text explaining the purpose of each category. Notes are saved explicitly with the diagram.
+Brief notes are stored as markdown. Category helpers insert top-level headings such as `# Business Rule`, `# Constraint`, and `# Compliance / Policy`; the category selector includes hover text explaining each category. Notes are saved explicitly with the diagram.
 
 ## Sidebar Organization
 
@@ -55,12 +55,13 @@ Notes are typed blocks with a category, title, and body. Category selectors incl
 - Use the sidebar edit toggle to show or hide delete buttons.
 - Success messages such as saved, renamed, created, and deleted clear automatically after three seconds.
 
-## Notes And Export
+## Brief Notes And Export
 
-- Notes appear below the rendered diagram in the preview area.
-- Regular SVG, PNG, and WebP export buttons export the diagram only.
-- The `+ Notes` export buttons include the rendered diagram and the note blocks underneath it.
-- SVG exports with notes keep note text as real SVG text elements, so tools that parse SVG text can read it without OCR.
+- The left writing area has tabs for Mermaid code and markdown brief notes.
+- The Brief view toggle controls whether notes are shown in the rendered preview.
+- Brief notes can be placed below or to the right of the diagram before export.
+- SVG, PNG, and WebP export buttons export the current preview state: diagram only when Brief view is off, or diagram plus brief when Brief view is on.
+- SVG exports with brief notes keep note text as real SVG text elements, so tools that parse SVG text can read it without OCR.
 
 By default, this repository ignores saved diagram files:
 

@@ -26,10 +26,10 @@ import {
   type SectionSummary
 } from "./api/diagrams";
 import { CodeEditor } from "./components/CodeEditor";
+import { BriefEditor } from "./components/BriefEditor";
 import { PreviewPane } from "./components/PreviewPane";
 import { Sidebar } from "./components/Sidebar";
 import { getMermaidFrontmatterTitle } from "./lib/mermaidInput";
-import type { DiagramNote } from "../shared/diagramNotes";
 
 const DISCARD_MESSAGE = "Discard unsaved changes?";
 const SPLIT_STORAGE_KEY = "mermaid-organizer.editorPanePercent";
@@ -58,8 +58,9 @@ export default function App() {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [savedCode, setSavedCode] = useState("");
-  const [notes, setNotes] = useState<DiagramNote[]>([]);
-  const [savedNotes, setSavedNotes] = useState<DiagramNote[]>([]);
+  const [briefMarkdown, setBriefMarkdown] = useState("");
+  const [savedBriefMarkdown, setSavedBriefMarkdown] = useState("");
+  const [activeEditorTab, setActiveEditorTab] = useState<"code" | "brief">("code");
   const [loadingList, setLoadingList] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -70,9 +71,7 @@ export default function App() {
   const operationGenerationRef = useRef(0);
   const splitViewRef = useRef<HTMLDivElement | null>(null);
 
-  const notesSnapshot = JSON.stringify(notes);
-  const savedNotesSnapshot = JSON.stringify(savedNotes);
-  const isDirty = code !== savedCode || notesSnapshot !== savedNotesSnapshot;
+  const isDirty = code !== savedCode || briefMarkdown !== savedBriefMarkdown;
   const frontmatterTitle = useMemo(() => getMermaidFrontmatterTitle(code), [code]);
   const statusLabel = useMemo(() => {
     if (isDirty) {
@@ -182,8 +181,8 @@ export default function App() {
       setSelectedName(diagram.name);
       setCode(diagram.code);
       setSavedCode(diagram.code);
-      setNotes(diagramNotes);
-      setSavedNotes(diagramNotes);
+      setBriefMarkdown(diagramNotes);
+      setSavedBriefMarkdown(diagramNotes);
     } catch (error) {
       if (!isCurrentOperation(operationGeneration)) {
         return;
@@ -206,8 +205,9 @@ export default function App() {
     setSelectedName(null);
     setCode("");
     setSavedCode("");
-    setNotes([]);
-    setSavedNotes([]);
+    setBriefMarkdown("");
+    setSavedBriefMarkdown("");
+    setActiveEditorTab("code");
     setBusy(false);
     setStatusMessage(null);
   }
@@ -395,8 +395,8 @@ export default function App() {
 
       setSelectedName(saved.name);
       setSavedCode(savedCodeSnapshot);
-      const savedDiagramNotes = await saveDiagramNotes(saved.name, notes);
-      setSavedNotes(savedDiagramNotes);
+      const savedDiagramNotes = await saveDiagramNotes(saved.name, briefMarkdown);
+      setSavedBriefMarkdown(savedDiagramNotes);
       await refreshList();
       if (!isCurrentOperation(operationGeneration)) {
         return;
@@ -439,8 +439,8 @@ export default function App() {
         setSelectedName(null);
         setCode("");
         setSavedCode("");
-        setNotes([]);
-        setSavedNotes([]);
+        setBriefMarkdown("");
+        setSavedBriefMarkdown("");
       }
 
       await refreshList();
@@ -522,7 +522,29 @@ export default function App() {
             } as CSSProperties
           }
         >
-          <CodeEditor code={code} onChange={setCode} />
+          <div className="tabbedEditorPane">
+            <div className="editorTabs" aria-label="Editor tabs">
+              <button
+                className={activeEditorTab === "code" ? "isActive" : ""}
+                type="button"
+                onClick={() => setActiveEditorTab("code")}
+              >
+                Mermaid
+              </button>
+              <button
+                className={activeEditorTab === "brief" ? "isActive" : ""}
+                type="button"
+                onClick={() => setActiveEditorTab("brief")}
+              >
+                Brief
+              </button>
+            </div>
+            {activeEditorTab === "code" ? (
+              <CodeEditor code={code} onChange={setCode} />
+            ) : (
+              <BriefEditor markdown={briefMarkdown} onChange={setBriefMarkdown} />
+            )}
+          </div>
           <button
             className="splitHandle"
             type="button"
@@ -537,8 +559,7 @@ export default function App() {
           <PreviewPane
             code={code}
             diagramName={selectedName ?? frontmatterTitle}
-            notes={notes}
-            onNotesChange={setNotes}
+            briefMarkdown={briefMarkdown}
           />
         </div>
       </section>

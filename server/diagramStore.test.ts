@@ -149,27 +149,18 @@ describe("createDiagramStore", () => {
     const store = createDiagramStore(root);
 
     await store.saveDiagram({ name: "Checkout", code: "flowchart TD\n  A --> B" });
-    await store.saveDiagramNotes("checkout", [
-      {
-        id: "note-1",
-        categoryId: "business-rule",
-        title: "Cutoff",
-        body: "Bookings after cutoff are rejected."
-      }
-    ]);
+    await store.saveDiagramNotes(
+      "checkout",
+      "# Business Rule\n1. Bookings after cutoff are rejected."
+    );
 
-    expect(await store.readDiagramNotes("checkout")).toEqual([
-      {
-        id: "note-1",
-        categoryId: "business-rule",
-        title: "Cutoff",
-        body: "Bookings after cutoff are rejected."
-      }
-    ]);
+    expect(await store.readDiagramNotes("checkout")).toBe(
+      "# Business Rule\n1. Bookings after cutoff are rejected."
+    );
 
     await store.renameDiagram("checkout", "Checkout v2");
 
-    expect(await store.readDiagramNotes("checkout-v2")).toHaveLength(1);
+    expect(await store.readDiagramNotes("checkout-v2")).toContain("Bookings after cutoff");
     await expect(readFile(path.join(root, "checkout.notes.json"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });

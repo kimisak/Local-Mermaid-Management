@@ -1,18 +1,16 @@
 import { Download, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import mermaid from "mermaid";
 import { useEffect, useId, useRef, useState } from "react";
+import { parseBriefMarkdown, type BriefPlacement } from "../../shared/diagramNotes";
 import { downloadBlob, downloadTextFile } from "../lib/download";
 import { svgToRasterBlob, type RasterMimeType } from "../lib/rasterExport";
 import { serializeSvgForDownload } from "../lib/svgExport";
 import { serializeSvgWithNotes } from "../lib/svgWithNotes";
-import type { DiagramNote } from "../../shared/diagramNotes";
-import { DiagramNotesEditor } from "./DiagramNotesEditor";
 
 type PreviewPaneProps = {
   code: string;
   diagramName: string | null;
-  notes: DiagramNote[];
-  onNotesChange: (notes: DiagramNote[]) => void;
+  briefMarkdown: string;
 };
 
 function errorMessage(error: unknown) {
@@ -32,7 +30,7 @@ function roundPan(value: number) {
   return Number(value.toFixed(2));
 }
 
-export function PreviewPane({ code, diagramName, notes, onNotesChange }: PreviewPaneProps) {
+export function PreviewPane({ code, diagramName, briefMarkdown }: PreviewPaneProps) {
   const id = useId().replace(/:/g, "");
   const [svg, setSvg] = useState<string | null>(null);
   const [renderedCode, setRenderedCode] = useState<string | null>(null);
@@ -40,6 +38,8 @@ export function PreviewPane({ code, diagramName, notes, onNotesChange }: Preview
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [briefView, setBriefView] = useState(false);
+  const [briefPlacement, setBriefPlacement] = useState<BriefPlacement>("below");
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragStartRef = useRef<{
     pointerId: number;
@@ -103,29 +103,39 @@ export function PreviewPane({ code, diagramName, notes, onNotesChange }: Preview
     };
   }, [code, id]);
 
+  const briefSections = parseBriefMarkdown(briefMarkdown);
+  const showBrief = briefView && briefSections.length > 0;
+
+  function currentExportSvg() {
+    if (!svg) {
+      return "";
+    }
+
+    return showBrief
+      ? serializeSvgWithNotes(svg, briefMarkdown, briefPlacement)
+      : serializeSvgForDownload(svg);
+  }
+
+  function currentExportName(extension: string) {
+    return exportFilename(showBrief ? `${diagramName ?? "unsaved-diagram"}-brief` : diagramName, extension);
+  }
+
   function exportSvg() {
     if (svg && renderedCode === code.trim() && !rendering) {
-      downloadTextFile(exportFilename(diagramName, "svg"), serializeSvgForDownload(svg));
+      downloadTextFile(currentExportName("svg"), currentExportSvg());
     }
   }
 
-  function exportSvgWithNotes() {
-    if (svg && renderedCode === code.trim() && !rendering) {
-      downloadTextFile(exportFilename(`${diagramName ?? "unsaved-diagram"}-with-notes`, "svg"), serializeSvgWithNotes(svg, notes));
-    }
-  }
-
-  async function exportRaster(type: RasterMimeType, extension: "png" | "webp", includeNotes = false) {
+  async function exportRaster(type: RasterMimeType, extension: "png" | "webp") {
     if (!svg || renderedCode !== code.trim() || rendering) {
       return;
     }
 
-    const serializedSvg = includeNotes ? serializeSvgWithNotes(svg, notes) : serializeSvgForDownload(svg);
     const blob =
       type === "image/webp"
-        ? await svgToRasterBlob(serializedSvg, type, 0.92)
-        : await svgToRasterBlob(serializedSvg, type);
-    downloadBlob(exportFilename(includeNotes ? `${diagramName ?? "unsaved-diagram"}-with-notes` : diagramName, extension), blob);
+        ? await svgToRasterBlob(currentExportSvg(), type, 0.92)
+        : await svgToRasterBlob(currentExportSvg(), type);
+    downloadBlob(currentExportName(extension), blob);
   }
 
   function exportPng() {
@@ -134,14 +144,6 @@ export function PreviewPane({ code, diagramName, notes, onNotesChange }: Preview
 
   function exportWebp() {
     void exportRaster("image/webp", "webp");
-  }
-
-  function exportPngWithNotes() {
-    void exportRaster("image/png", "png", true);
-  }
-
-  function exportWebpWithNotes() {
-    void exportRaster("image/webp", "webp", true);
   }
 
   function zoomBy(delta: number, anchor?: { x: number; y: number }) {
@@ -203,57 +205,53 @@ export function PreviewPane({ code, diagramName, notes, onNotesChange }: Preview
 
   const canExport = Boolean(svg && renderedCode === code.trim() && !rendering);
   const transform = `translate(${pan.x}px, ${pan.y}px) scale(${scale})`;
+  const previewSvg = svg ? (showBrief ? serializeSvgWithNotes(svg, briefMarkdown, briefPlacement) : svg) : null;
 
   return (
     <section className="previewPane" aria-label="Diagram preview">
       <div className="paneHeader">
         <div>
           <p className="eyebrow">Preview</p>
-          <h2>Rendered diagram</h2>
+          <h2>{showBrief ? "Diagram brief" : "Rendered diagram"}</h2>
         </div>
         <div className="previewTools">
-          <button
-            className="iconButton"
-            type="button"
-            onClick={() => zoomBy(0.2)}
-            aria-label="Zoom in"
-          >
+          <button className="iconButton" type="button" onClick={() => zoomBy(0.2)} aria-label="Zoom in">
             <ZoomIn size={16} aria-hidden="true" />
           </button>
-          <button
-            className="iconButton"
-            type="button"
-            onClick={() => zoomBy(-0.2)}
-            aria-label="Zoom out"
-          >
+          <button className="iconButton" type="button" onClick={() => zoomBy(-0.2)} aria-label="Zoom out">
             <ZoomOut size={16} aria-hidden="true" />
           </button>
           <button className="iconButton" type="button" onClick={resetView} aria-label="Reset view">
             <RotateCcw size={16} aria-hidden="true" />
           </button>
+          <label className="previewToggle">
+            <input
+              type="checkbox"
+              checked={briefView}
+              onChange={(event) => setBriefView(event.target.checked)}
+            />
+            Brief view
+          </label>
+          <select
+            aria-label="Brief placement"
+            value={briefPlacement}
+            disabled={!briefView}
+            onChange={(event) => setBriefPlacement(event.target.value as BriefPlacement)}
+          >
+            <option value="below">Below</option>
+            <option value="right">Right</option>
+          </select>
           <button className="toolButton" type="button" onClick={exportSvg} disabled={!canExport}>
             <Download size={16} aria-hidden="true" />
             Export SVG
-          </button>
-          <button className="toolButton" type="button" onClick={exportSvgWithNotes} disabled={!canExport}>
-            <Download size={16} aria-hidden="true" />
-            SVG + Notes
           </button>
           <button className="toolButton" type="button" onClick={exportPng} disabled={!canExport}>
             <Download size={16} aria-hidden="true" />
             Export PNG
           </button>
-          <button className="toolButton" type="button" onClick={exportPngWithNotes} disabled={!canExport}>
-            <Download size={16} aria-hidden="true" />
-            PNG + Notes
-          </button>
           <button className="toolButton" type="button" onClick={exportWebp} disabled={!canExport}>
             <Download size={16} aria-hidden="true" />
             Export WebP
-          </button>
-          <button className="toolButton" type="button" onClick={exportWebpWithNotes} disabled={!canExport}>
-            <Download size={16} aria-hidden="true" />
-            WebP + Notes
           </button>
         </div>
       </div>
@@ -297,19 +295,18 @@ export function PreviewPane({ code, diagramName, notes, onNotesChange }: Preview
             <pre>{error}</pre>
           </div>
         ) : null}
-        {!error && svg ? (
+        {!error && previewSvg ? (
           <div
             className="renderedDiagram"
-            aria-label="Rendered Mermaid diagram"
+            aria-label={showBrief ? "Rendered diagram with brief" : "Rendered Mermaid diagram"}
             style={{ transform }}
-            dangerouslySetInnerHTML={{ __html: svg }}
+            dangerouslySetInnerHTML={{ __html: previewSvg }}
           />
         ) : null}
         {!error && !svg ? (
           <p className="previewPlaceholder">Paste or type Mermaid code to render a preview.</p>
         ) : null}
       </div>
-      <DiagramNotesEditor notes={notes} onChange={onNotesChange} />
     </section>
   );
 }

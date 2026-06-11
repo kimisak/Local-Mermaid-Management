@@ -6,7 +6,6 @@ import express, {
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createDiagramStore } from "./diagramStore";
-import { isNoteCategoryId, type DiagramNote } from "../shared/diagramNotes";
 
 const DEFAULT_PORT = 3001;
 const LOCAL_HOST = "127.0.0.1";
@@ -38,25 +37,11 @@ function isRenameInput(body: unknown): body is { name: string } {
   return isSectionInput(body);
 }
 
-function isDiagramNotesInput(body: unknown): body is { notes: DiagramNote[] } {
+function isDiagramNotesInput(body: unknown): body is { markdown: string } {
   return (
     typeof body === "object" &&
     body !== null &&
-    Array.isArray((body as { notes?: unknown }).notes) &&
-    (body as { notes: unknown[] }).notes.every((note) => {
-      if (typeof note !== "object" || note === null) {
-        return false;
-      }
-
-      const candidate = note as Partial<DiagramNote>;
-      return (
-        typeof candidate.id === "string" &&
-        typeof candidate.categoryId === "string" &&
-        isNoteCategoryId(candidate.categoryId) &&
-        typeof candidate.title === "string" &&
-        typeof candidate.body === "string"
-      );
-    })
+    typeof (body as { markdown?: unknown }).markdown === "string"
   );
 }
 
@@ -123,11 +108,11 @@ export function createApp(diagramsRoot = DEFAULT_DIAGRAMS_ROOT) {
     "/api/diagrams/:name/notes",
     async (request: Request<{ name: string }>, response: Response) => {
       if (!isDiagramNotesInput(request.body)) {
-        response.status(400).json({ error: "notes must be valid diagram notes" });
+        response.status(400).json({ error: "markdown must be a string" });
         return;
       }
 
-      response.json(await store.saveDiagramNotes(request.params.name, request.body.notes));
+      response.json(await store.saveDiagramNotes(request.params.name, request.body.markdown));
     }
   );
 

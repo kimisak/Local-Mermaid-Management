@@ -1,4 +1,4 @@
-import { noteCategoryLabel, type DiagramNote } from "../../shared/diagramNotes";
+import { parseBriefMarkdown, type BriefPlacement } from "../../shared/diagramNotes";
 import { serializeSvgForDownload } from "./svgExport";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -55,32 +55,38 @@ function svgDimensions(svgText: string) {
   };
 }
 
-export function serializeSvgWithNotes(svgText: string, notes: DiagramNote[]) {
+export function serializeSvgWithNotes(
+  svgText: string,
+  briefMarkdown: string,
+  placement: BriefPlacement = "below"
+) {
   const serializedSvg = serializeSvgForDownload(svgText);
+  const sections = parseBriefMarkdown(briefMarkdown);
 
-  if (notes.length === 0) {
+  if (sections.length === 0) {
     return serializedSvg;
   }
 
   const { width, height } = svgDimensions(serializedSvg);
-  let y = height + NOTE_MARGIN;
+  const notesX = placement === "right" ? width + NOTE_MARGIN : NOTE_MARGIN;
+  let y = placement === "right" ? NOTE_MARGIN : height + NOTE_MARGIN;
+  let noteHeight = y;
   const noteText: string[] = [
-    `<text x="${NOTE_MARGIN}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">Notes</text>`
+    `<text x="${notesX}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">Brief</text>`
   ];
   y += LINE_HEIGHT + 14;
 
-  for (const note of notes) {
-    const title = note.title.trim() || "Untitled";
+  for (const section of sections) {
     noteText.push(
-      `<text x="${NOTE_MARGIN}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">${escapeXml(
-        `${noteCategoryLabel(note.categoryId)}: ${title}`
+      `<text x="${notesX}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">${escapeXml(
+        section.label
       )}</text>`
     );
     y += LINE_HEIGHT;
 
-    for (const line of wrapText(note.body)) {
+    for (const line of section.markdown.split("\n").flatMap((markdownLine) => wrapText(markdownLine))) {
       noteText.push(
-        `<text x="${NOTE_MARGIN}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="13">${escapeXml(
+        `<text x="${notesX}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="13">${escapeXml(
           line
         )}</text>`
       );
@@ -89,8 +95,12 @@ export function serializeSvgWithNotes(svgText: string, notes: DiagramNote[]) {
 
     y += 12;
   }
+  noteHeight = y;
 
-  return `<svg xmlns="${SVG_NAMESPACE}" width="${width}" height="${y}" viewBox="0 0 ${width} ${y}"><svg x="0" y="0" width="${width}" height="${height}">${serializedSvg}</svg>${noteText.join(
+  const finalWidth = placement === "right" ? width + NOTE_WIDTH + NOTE_MARGIN * 2 : width;
+  const finalHeight = placement === "right" ? Math.max(height, noteHeight + NOTE_MARGIN) : noteHeight;
+
+  return `<svg xmlns="${SVG_NAMESPACE}" width="${finalWidth}" height="${finalHeight}" viewBox="0 0 ${finalWidth} ${finalHeight}"><svg x="0" y="0" width="${width}" height="${height}">${serializedSvg}</svg>${noteText.join(
     ""
   )}</svg>`;
 }

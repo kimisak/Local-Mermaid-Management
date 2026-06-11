@@ -84,7 +84,7 @@ describe("diagram API errors", () => {
     await expect(loadDiagramNotes("checkout")).rejects.toThrow(
       "Failed to load notes for \"checkout\": offline"
     );
-    await expect(saveDiagramNotes("checkout", [])).rejects.toThrow(
+    await expect(saveDiagramNotes("checkout", "")).rejects.toThrow(
       "Failed to save notes for \"checkout\": offline"
     );
   });

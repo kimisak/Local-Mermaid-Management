@@ -1,7 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { isNoteCategoryId, type DiagramNote } from "../shared/diagramNotes";
+import { notesToBriefMarkdown, type DiagramNote } from "../shared/diagramNotes";
 
 export type DiagramSummary = {
   name: string;
@@ -27,9 +26,9 @@ export type SaveDiagramInput = {
 export type DiagramStore = {
   listDiagrams(): Promise<DiagramSummary[]>;
   readDiagram(name: string): Promise<DiagramRecord>;
-  readDiagramNotes(name: string): Promise<DiagramNote[]>;
+  readDiagramNotes(name: string): Promise<string>;
   saveDiagram(input: SaveDiagramInput): Promise<DiagramSummary>;
-  saveDiagramNotes(name: string, notes: DiagramNote[]): Promise<DiagramNote[]>;
+  saveDiagramNotes(name: string, markdown: string): Promise<string>;
   renameDiagram(name: string, nextName: string): Promise<DiagramSummary>;
   deleteDiagram(name: string): Promise<void>;
   listSections(): Promise<SectionSummary[]>;
@@ -141,15 +140,6 @@ export function createDiagramStore(root: string): DiagramStore {
     return `${sanitizeDiagramName(name)}-${Date.parse(createdAt).toString(36)}`;
   }
 
-  function normalizeNotes(notes: DiagramNote[]) {
-    return notes.map((note) => ({
-      id: String(note.id || randomUUID()),
-      categoryId: isNoteCategoryId(note.categoryId) ? note.categoryId : "general-note",
-      title: String(note.title ?? ""),
-      body: String(note.body ?? "")
-    }));
-  }
-
   return {
     async listDiagrams() {
       await ensureRoot();
@@ -182,12 +172,22 @@ export function createDiagramStore(root: string): DiagramStore {
     async readDiagramNotes(name: string) {
       try {
         const payload = JSON.parse(await readFile(resolveNotesPath(name), "utf8")) as {
+          markdown?: unknown;
           notes?: DiagramNote[];
         };
-        return normalizeNotes(Array.isArray(payload.notes) ? payload.notes : []);
+
+        if (typeof payload.markdown === "string") {
+          return payload.markdown;
+        }
+
+        if (Array.isArray(payload.notes)) {
+          return notesToBriefMarkdown(payload.notes);
+        }
+
+        return "";
       } catch (error) {
         if (typeof error === "object" && error !== null && (error as NodeJS.ErrnoException).code === "ENOENT") {
-          return [];
+          return "";
         }
 
         throw error;
@@ -202,15 +202,14 @@ export function createDiagramStore(root: string): DiagramStore {
       return toSummary(filename, (await readMetadata()).assignments[filename.replace(/\.mmd$/i, "")] ?? null);
     },
 
-    async saveDiagramNotes(name: string, notes: DiagramNote[]) {
+    async saveDiagramNotes(name: string, markdown: string) {
       await ensureRoot();
-      const normalizedNotes = normalizeNotes(notes);
       await writeFile(
         resolveNotesPath(name),
-        `${JSON.stringify({ notes: normalizedNotes }, null, 2)}\n`,
+        `${JSON.stringify({ markdown }, null, 2)}\n`,
         "utf8"
       );
-      return normalizedNotes;
+      return markdown;
     },
 
     async renameDiagram(name: string, nextName: string) {

@@ -158,29 +158,22 @@ describe("diagram API", () => {
     const root = await createTempRoot();
     const app = createApp(root);
 
-    await request(app).get("/api/diagrams/checkout/notes").expect(200).expect([]);
+    await request(app)
+      .get("/api/diagrams/checkout/notes")
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toBe("");
+      });
 
     await request(app)
       .put("/api/diagrams/checkout/notes")
       .send({
-        notes: [
-          {
-            id: "note-1",
-            categoryId: "business-rule",
-            title: "Cutoff",
-            body: "Bookings after cutoff are rejected."
-          }
-        ]
+        markdown: "# Business Rule\n1. Bookings after cutoff are rejected."
       })
       .expect(200)
-      .expect([
-        {
-          id: "note-1",
-          categoryId: "business-rule",
-          title: "Cutoff",
-          body: "Bookings after cutoff are rejected."
-        }
-      ]);
+      .expect((response) => {
+        expect(response.body).toBe("# Business Rule\n1. Bookings after cutoff are rejected.");
+      });
   });
 
   it("returns sanitized JSON for unexpected filesystem errors", async () => {

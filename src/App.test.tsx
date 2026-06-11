@@ -74,6 +74,15 @@ const mockedDownloadBlob = vi.mocked(downloadBlob);
 const mockedDownloadTextFile = vi.mocked(downloadTextFile);
 const mockedSvgToRasterBlob = vi.mocked(svgToRasterBlob);
 
+function renderedDiagramElement(viewport: HTMLElement) {
+  const element = viewport.querySelector(".renderedDiagram");
+  if (!(element instanceof HTMLElement)) {
+    throw new Error("Rendered diagram element was not found");
+  }
+
+  return element;
+}
+
 function createMockDataTransfer() {
   const data = new Map<string, string>();
 
@@ -107,13 +116,13 @@ describe("App", () => {
       sectionId: null,
       code: name === "Checkout flow" ? "flowchart TD\n  A --> B" : "graph LR\n  C --> D"
     }));
-    mockedLoadDiagramNotes.mockResolvedValue([]);
+    mockedLoadDiagramNotes.mockResolvedValue("");
     mockedSaveDiagram.mockResolvedValue({
       name: "Checkout flow",
       filename: "Checkout flow.mmd",
       sectionId: null
     });
-    mockedSaveDiagramNotes.mockImplementation(async (_name, notes) => notes);
+    mockedSaveDiagramNotes.mockImplementation(async (_name, markdown) => markdown);
     mockedDeleteDiagram.mockResolvedValue(undefined);
     mockedDeleteSection.mockResolvedValue(undefined);
     mockedRenameDiagram.mockImplementation(async (_name, nextName) => ({
@@ -752,39 +761,40 @@ describe("App", () => {
     expect(mockedDownloadBlob).toHaveBeenCalledWith("unsaved-diagram.webp", webpBlob);
   });
 
-  it("saves typed notes and exports SVG with notes", async () => {
+  it("saves markdown brief notes and exports the visible brief with SVG", async () => {
     vi.spyOn(window, "prompt").mockReturnValue("Export Flow");
     render(<App />);
 
     fireEvent.change(await screen.findByRole("textbox", { name: /mermaid code/i }), {
       target: { value: "---\ntitle: Export Flow\n---\nflowchart TD\n  A --> B" }
     });
-    await userEvent.click(await screen.findByRole("button", { name: /add note/i }));
-    await userEvent.selectOptions(screen.getByLabelText(/category/i), "business-rule");
-    expect(screen.getByLabelText(/category/i)).toHaveAttribute(
+    await userEvent.click(screen.getByRole("button", { name: /brief/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/brief category/i), "business-rule");
+    expect(screen.getByLabelText(/brief category/i)).toHaveAttribute(
       "title",
       expect.stringContaining("domain rule")
     );
-    await userEvent.type(screen.getByLabelText(/title/i), "Cutoff");
-    await userEvent.type(screen.getByLabelText(/body/i), "Bookings after cutoff are rejected.");
+    await userEvent.click(screen.getByRole("button", { name: /insert category/i }));
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /brief markdown/i }),
+      "1. Bookings after cutoff are rejected."
+    );
 
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
 
     expect(mockedSaveDiagramNotes).toHaveBeenCalledWith(
       "Checkout flow",
-      expect.arrayContaining([
-        expect.objectContaining({
-          categoryId: "business-rule",
-          title: "Cutoff",
-          body: "Bookings after cutoff are rejected."
-        })
-      ])
+      "# Business Rule\n1. Bookings after cutoff are rejected."
     );
 
-    await userEvent.click(await screen.findByRole("button", { name: /svg \+ notes/i }));
+    await userEvent.click(screen.getByLabelText(/brief view/i));
+    const renderedBrief = await screen.findByLabelText(/rendered diagram with brief/i);
+    expect(within(renderedBrief).getByText("Business Rule")).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: /export svg/i }));
 
     const exported = mockedDownloadTextFile.mock.calls.at(-1)?.[1] ?? "";
-    expect(exported).toContain("Business Rule: Cutoff");
+    expect(exported).toContain("Business Rule");
     expect(exported).toContain("Bookings after cutoff are rejected.");
   });
 
@@ -828,7 +838,7 @@ describe("App", () => {
     const exportButton = await screen.findByRole("button", { name: /export svg/i });
 
     await userEvent.click(zoomIn);
-    expect(viewport.firstElementChild).toHaveStyle({
+    expect(renderedDiagramElement(viewport)).toHaveStyle({
       transform: "translate(0px, 0px) scale(1.2)"
     });
 
@@ -836,7 +846,7 @@ describe("App", () => {
     fireEvent.pointerMove(window, { clientX: 135, clientY: 120, pointerId: 2 });
     fireEvent.pointerUp(window, { pointerId: 2 });
 
-    expect(viewport.firstElementChild).toHaveStyle({
+    expect(renderedDiagramElement(viewport)).toHaveStyle({
       transform: "translate(35px, 20px) scale(1.2)"
     });
 
@@ -913,7 +923,7 @@ describe("App", () => {
       deltaY: -100
     });
 
-    expect(viewport.firstElementChild).toHaveStyle({
+    expect(renderedDiagramElement(viewport)).toHaveStyle({
       transform: "translate(-20px, -15px) scale(1.1)"
     });
   });
@@ -931,7 +941,7 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /zoom in/i }));
 
-    expect(viewport.firstElementChild).toHaveStyle({
+    expect(renderedDiagramElement(viewport)).toHaveStyle({
       transform: "translate(-100px, -60px) scale(1.2)"
     });
   });

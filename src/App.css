@@ -326,6 +326,42 @@ button:disabled {
   flex: 1;
 }
 
+.tabbedEditorPane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.editorTabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #d5dde5;
+  background: #ffffff;
+  padding: 8px 10px 0;
+}
+
+.editorTabs button {
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: #596879;
+  padding: 8px 12px;
+  font-weight: 800;
+}
+
+.editorTabs button.isActive {
+  border-color: #d5dde5;
+  background: #f8fafb;
+  color: #1e252d;
+}
+
+.tabbedEditorPane .editorPane {
+  min-height: 0;
+  flex: 1;
+}
+
 .splitView.isResizing {
   cursor: col-resize;
   user-select: none;
@@ -474,6 +510,32 @@ button:disabled {
 }
 
 .previewTools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.previewTools select,
+.briefTools select {
+  min-height: 36px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e252d;
+  padding: 0 9px;
+}
+
+.previewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  color: #425160;
+  font-weight: 750;
+}
+
+.briefTools {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
