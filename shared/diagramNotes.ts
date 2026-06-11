@@ -72,8 +72,7 @@ export type DiagramNote = {
   body: string;
 };
 
-export type BriefPlacement = "below" | "right";
-export type BriefLayout = "vertical" | "horizontal";
+export type BriefPlacement = "left" | "above" | "below";
 
 export type BriefSection = {
   categoryId: NoteCategoryId;

@@ -60,8 +60,7 @@ Brief notes are stored as markdown. Category helpers insert top-level headings s
 
 - The left writing area has tabs for Mermaid code and markdown brief notes.
 - The Brief view toggle controls whether notes are shown in the rendered preview.
-- Brief notes can be placed below or to the right of the diagram before export.
-- Brief notes can be rendered vertically or as a horizontal category/content grid.
+- Brief notes can be placed to the left of, above, or below the diagram before export.
 - SVG brief rendering supports plain text, bullets, numbered lists, quotes, and subheadings.
 - SVG, PNG, and WebP export buttons export the current preview state: diagram only when Brief view is off, or diagram plus brief when Brief view is on.
 - SVG exports with brief notes keep note text as real SVG text elements, so tools that parse SVG text can read it without OCR.

@@ -798,6 +798,27 @@ describe("App", () => {
     expect(exported).toContain("Bookings after cutoff are rejected.");
   });
 
+  it("can place the brief to the left or above the rendered diagram", async () => {
+    render(<App />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: /mermaid code/i }), {
+      target: { value: "flowchart TD\n  A --> B" }
+    });
+    await userEvent.click(screen.getByRole("button", { name: /brief/i }));
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /brief markdown/i }),
+      "# Forretningsregler\n- Booking = kapasitetsreservasjon"
+    );
+    await userEvent.click(screen.getByLabelText(/brief view/i));
+
+    await userEvent.selectOptions(screen.getByLabelText(/brief placement/i), "left");
+    expect(await screen.findByLabelText(/rendered diagram with brief/i)).toContainHTML('<svg x="948" y="0"');
+
+    await userEvent.selectOptions(screen.getByLabelText(/brief placement/i), "above");
+    expect(await screen.findByLabelText(/rendered diagram with brief/i)).toContainHTML('<svg x="0" y="');
+    expect(screen.queryByLabelText(/brief layout/i)).not.toBeInTheDocument();
+  });
+
   it("resizes the editor and preview panes by dragging the split handle", async () => {
     render(<App />);
 

@@ -1,7 +1,7 @@
 import { Download, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import mermaid from "mermaid";
 import { useEffect, useId, useRef, useState } from "react";
-import { parseBriefMarkdown, type BriefLayout, type BriefPlacement } from "../../shared/diagramNotes";
+import { parseBriefMarkdown, type BriefPlacement } from "../../shared/diagramNotes";
 import { downloadBlob, downloadTextFile } from "../lib/download";
 import { svgToRasterBlob, type RasterMimeType } from "../lib/rasterExport";
 import { serializeSvgForDownload } from "../lib/svgExport";
@@ -40,7 +40,6 @@ export function PreviewPane({ code, diagramName, briefMarkdown }: PreviewPanePro
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [briefView, setBriefView] = useState(false);
   const [briefPlacement, setBriefPlacement] = useState<BriefPlacement>("below");
-  const [briefLayout, setBriefLayout] = useState<BriefLayout>("vertical");
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragStartRef = useRef<{
     pointerId: number;
@@ -113,7 +112,7 @@ export function PreviewPane({ code, diagramName, briefMarkdown }: PreviewPanePro
     }
 
     return showBrief
-      ? serializeSvgWithNotes(svg, briefMarkdown, briefPlacement, briefLayout)
+      ? serializeSvgWithNotes(svg, briefMarkdown, briefPlacement)
       : serializeSvgForDownload(svg);
   }
 
@@ -206,7 +205,7 @@ export function PreviewPane({ code, diagramName, briefMarkdown }: PreviewPanePro
 
   const canExport = Boolean(svg && renderedCode === code.trim() && !rendering);
   const transform = `translate(${pan.x}px, ${pan.y}px) scale(${scale})`;
-  const previewSvg = svg ? (showBrief ? serializeSvgWithNotes(svg, briefMarkdown, briefPlacement, briefLayout) : svg) : null;
+  const previewSvg = svg ? (showBrief ? serializeSvgWithNotes(svg, briefMarkdown, briefPlacement) : svg) : null;
 
   return (
     <section className="previewPane" aria-label="Diagram preview">
@@ -239,17 +238,9 @@ export function PreviewPane({ code, diagramName, briefMarkdown }: PreviewPanePro
             disabled={!briefView}
             onChange={(event) => setBriefPlacement(event.target.value as BriefPlacement)}
           >
+            <option value="left">Left</option>
+            <option value="above">Above</option>
             <option value="below">Below</option>
-            <option value="right">Right</option>
-          </select>
-          <select
-            aria-label="Brief layout"
-            value={briefLayout}
-            disabled={!briefView}
-            onChange={(event) => setBriefLayout(event.target.value as BriefLayout)}
-          >
-            <option value="vertical">Vertical</option>
-            <option value="horizontal">Horizontal</option>
           </select>
           <button className="toolButton" type="button" onClick={exportSvg} disabled={!canExport}>
             <Download size={16} aria-hidden="true" />

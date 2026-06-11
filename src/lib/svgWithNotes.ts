@@ -1,12 +1,10 @@
-import { parseBriefMarkdown, type BriefLayout, type BriefPlacement } from "../../shared/diagramNotes";
+import { parseBriefMarkdown, type BriefPlacement } from "../../shared/diagramNotes";
 import { serializeSvgForDownload } from "./svgExport";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const NOTE_WIDTH = 900;
 const NOTE_MARGIN = 24;
 const LINE_HEIGHT = 18;
-const GRID_LABEL_WIDTH = 200;
-const GRID_GAP = 20;
 
 function escapeXml(value: string) {
   return value
@@ -129,8 +127,7 @@ function svgDimensions(svgText: string) {
 export function serializeSvgWithNotes(
   svgText: string,
   briefMarkdown: string,
-  placement: BriefPlacement = "below",
-  layout: BriefLayout = "vertical"
+  placement: BriefPlacement = "below"
 ) {
   const serializedSvg = serializeSvgForDownload(svgText);
   const sections = parseBriefMarkdown(briefMarkdown);
@@ -140,40 +137,32 @@ export function serializeSvgWithNotes(
   }
 
   const { width, height } = svgDimensions(serializedSvg);
-  const notesX = placement === "right" ? width + NOTE_MARGIN : NOTE_MARGIN;
-  let y = placement === "right" ? NOTE_MARGIN : height + NOTE_MARGIN;
+  const notesX = NOTE_MARGIN;
+  let y = placement === "below" ? height + NOTE_MARGIN : NOTE_MARGIN;
   let noteHeight = y;
   const noteText: string[] = [textElement(notesX, y, "Brief", { size: 20, weight: 700 })];
   y += LINE_HEIGHT + 14;
 
-  if (layout === "horizontal") {
-    const contentX = notesX + GRID_LABEL_WIDTH + GRID_GAP;
-    const contentMaxLength = 70;
+  for (const section of sections) {
+    noteText.push(textElement(notesX, y, section.label, { size: 15, weight: 700 }));
+    y += LINE_HEIGHT;
 
-    for (const section of sections) {
-      const rowY = y;
-      noteText.push(textElement(notesX, rowY, section.label, { size: 14, weight: 700 }));
-      const contentEndY = renderMarkdownBlock(noteText, section.markdown, contentX, rowY, contentMaxLength);
-      y = Math.max(rowY + LINE_HEIGHT + 12, contentEndY + 12);
-      noteText.push(
-        `<line x1="${notesX}" y1="${y - 4}" x2="${notesX + NOTE_WIDTH}" y2="${y - 4}" stroke="#d5dde5" stroke-width="1" />`
-      );
-    }
-  } else {
-    for (const section of sections) {
-      noteText.push(textElement(notesX, y, section.label, { size: 15, weight: 700 }));
-      y += LINE_HEIGHT;
-
-      y = renderMarkdownBlock(noteText, section.markdown, notesX, y, 96);
-      y += 12;
-    }
+    y = renderMarkdownBlock(noteText, section.markdown, notesX, y, 96);
+    y += 12;
   }
   noteHeight = y;
 
-  const finalWidth = placement === "right" ? width + NOTE_WIDTH + NOTE_MARGIN * 2 : width;
-  const finalHeight = placement === "right" ? Math.max(height, noteHeight + NOTE_MARGIN) : noteHeight;
+  const diagramX = placement === "left" ? NOTE_WIDTH + NOTE_MARGIN * 2 : 0;
+  const diagramY = placement === "above" ? noteHeight + NOTE_MARGIN : 0;
+  const finalWidth = placement === "left" ? diagramX + width : width;
+  const finalHeight =
+    placement === "left"
+      ? Math.max(height, noteHeight + NOTE_MARGIN)
+      : placement === "above"
+        ? diagramY + height
+        : noteHeight;
 
-  return `<svg xmlns="${SVG_NAMESPACE}" width="${finalWidth}" height="${finalHeight}" viewBox="0 0 ${finalWidth} ${finalHeight}"><svg x="0" y="0" width="${width}" height="${height}">${serializedSvg}</svg>${noteText.join(
+  return `<svg xmlns="${SVG_NAMESPACE}" width="${finalWidth}" height="${finalHeight}" viewBox="0 0 ${finalWidth} ${finalHeight}"><svg x="${diagramX}" y="${diagramY}" width="${width}" height="${height}">${serializedSvg}</svg>${noteText.join(
     ""
   )}</svg>`;
 }

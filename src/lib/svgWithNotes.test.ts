@@ -16,15 +16,28 @@ describe("serializeSvgWithNotes", () => {
     expect(exported).toContain("Bookings after cutoff are rejected.");
   });
 
-  it("can place brief notes to the right of the diagram", () => {
+  it("can place brief notes to the left of the diagram", () => {
     const exported = serializeSvgWithNotes(
       '<svg viewBox="0 0 100 50"><text>A</text></svg>',
       "# Constraint\n- Quantity is limited.",
-      "right"
+      "left"
     );
 
     expect(exported).toContain('viewBox="0 0 1848 128"');
-    expect(exported).toContain('x="924"');
+    expect(exported).toContain('<svg x="948" y="0"');
+    expect(exported).toContain('x="24"');
+    expect(exported).toContain("Constraint");
+  });
+
+  it("can place brief notes above the diagram", () => {
+    const exported = serializeSvgWithNotes(
+      '<svg viewBox="0 0 100 50"><text>A</text></svg>',
+      "# Constraint\n- Quantity is limited.",
+      "above"
+    );
+
+    expect(exported).toContain('viewBox="0 0 900 178"');
+    expect(exported).toContain('<svg x="0" y="128"');
     expect(exported).toContain("Constraint");
   });
 
@@ -48,22 +61,4 @@ describe("serializeSvgWithNotes", () => {
     expect(exported).not.toContain("&gt; Avbestilling etter frist");
   });
 
-  it("can render brief sections as a horizontal category-content grid", () => {
-    const exported = serializeSvgWithNotes(
-      '<svg viewBox="0 0 100 50"><text>A</text></svg>',
-      `# Forretningsregler
-- Booking
-
-# Mål
-- Øke Flex`,
-      "below",
-      "horizontal"
-    );
-
-    expect(exported).toContain("Forretningsregler");
-    expect(exported).toContain("Mål");
-    expect(exported).toContain('x="24"');
-    expect(exported).toContain('x="244"');
-    expect(exported).toContain("<line");
-  });
 });
