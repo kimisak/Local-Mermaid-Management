@@ -154,6 +154,35 @@ describe("diagram API", () => {
       .expect({ ...section.body, name: "Renamed" });
   });
 
+  it("reads and writes diagram notes", async () => {
+    const root = await createTempRoot();
+    const app = createApp(root);
+
+    await request(app).get("/api/diagrams/checkout/notes").expect(200).expect([]);
+
+    await request(app)
+      .put("/api/diagrams/checkout/notes")
+      .send({
+        notes: [
+          {
+            id: "note-1",
+            categoryId: "business-rule",
+            title: "Cutoff",
+            body: "Bookings after cutoff are rejected."
+          }
+        ]
+      })
+      .expect(200)
+      .expect([
+        {
+          id: "note-1",
+          categoryId: "business-rule",
+          title: "Cutoff",
+          body: "Bookings after cutoff are rejected."
+        }
+      ]);
+  });
+
   it("returns sanitized JSON for unexpected filesystem errors", async () => {
     const root = path.join(await createTempRoot(), "not-a-directory");
     await writeFile(root, "file blocks directory creation", "utf8");

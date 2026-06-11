@@ -16,6 +16,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -373,6 +374,82 @@ button:disabled {
   border: 1px solid #cbd5df;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.diagramNotes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid #d5dde5;
+  padding: 14px;
+  background: #fbfcfd;
+}
+
+.notesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notesHeader h2 {
+  margin: 2px 0 0;
+  font-size: 1rem;
+}
+
+.notesList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.noteItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  border: 1px solid #d5dde5;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.noteFields {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.45fr) minmax(180px, 1fr);
+  gap: 8px;
+}
+
+.noteItem label {
+  display: grid;
+  gap: 4px;
+  color: #596879;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.noteItem input,
+.noteItem select,
+.noteItem textarea {
+  min-width: 0;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e252d;
+  padding: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.noteBodyField {
+  grid-column: 1 / 2;
+}
+
+.noteBodyField textarea {
+  min-height: 82px;
+  resize: vertical;
 }
 
 .codeMirrorShell {

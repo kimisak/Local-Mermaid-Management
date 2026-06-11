@@ -144,6 +144,37 @@ describe("createDiagramStore", () => {
     expect(metadata.assignments).toEqual({ "checkout-v2": section.id });
   });
 
+  it("stores notes next to a diagram and moves them when the diagram is renamed", async () => {
+    const root = await createTempRoot();
+    const store = createDiagramStore(root);
+
+    await store.saveDiagram({ name: "Checkout", code: "flowchart TD\n  A --> B" });
+    await store.saveDiagramNotes("checkout", [
+      {
+        id: "note-1",
+        categoryId: "business-rule",
+        title: "Cutoff",
+        body: "Bookings after cutoff are rejected."
+      }
+    ]);
+
+    expect(await store.readDiagramNotes("checkout")).toEqual([
+      {
+        id: "note-1",
+        categoryId: "business-rule",
+        title: "Cutoff",
+        body: "Bookings after cutoff are rejected."
+      }
+    ]);
+
+    await store.renameDiagram("checkout", "Checkout v2");
+
+    expect(await store.readDiagramNotes("checkout-v2")).toHaveLength(1);
+    await expect(readFile(path.join(root, "checkout.notes.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
   it("renames a section", async () => {
     const root = await createTempRoot();
     const store = createDiagramStore(root);

@@ -7,10 +7,12 @@ import {
   listDiagrams,
   listSections,
   loadDiagram,
+  loadDiagramNotes,
   renameDiagram,
   renameSection,
   reorderSections,
-  saveDiagram
+  saveDiagram,
+  saveDiagramNotes
 } from "./diagrams";
 
 describe("diagram API errors", () => {
@@ -73,6 +75,17 @@ describe("diagram API errors", () => {
 
     await expect(assignDiagramToSection("checkout", "workflows")).rejects.toThrow(
       "Failed to move diagram \"checkout\": offline"
+    );
+  });
+
+  it("wraps diagram notes failures with operation context", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+
+    await expect(loadDiagramNotes("checkout")).rejects.toThrow(
+      "Failed to load notes for \"checkout\": offline"
+    );
+    await expect(saveDiagramNotes("checkout", [])).rejects.toThrow(
+      "Failed to save notes for \"checkout\": offline"
     );
   });
 

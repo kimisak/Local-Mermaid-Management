@@ -6,6 +6,7 @@ import express, {
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createDiagramStore } from "./diagramStore";
+import { isNoteCategoryId, type DiagramNote } from "../shared/diagramNotes";
 
 const DEFAULT_PORT = 3001;
 const LOCAL_HOST = "127.0.0.1";
@@ -35,6 +36,28 @@ function isSectionInput(body: unknown): body is { name: string } {
 
 function isRenameInput(body: unknown): body is { name: string } {
   return isSectionInput(body);
+}
+
+function isDiagramNotesInput(body: unknown): body is { notes: DiagramNote[] } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    Array.isArray((body as { notes?: unknown }).notes) &&
+    (body as { notes: unknown[] }).notes.every((note) => {
+      if (typeof note !== "object" || note === null) {
+        return false;
+      }
+
+      const candidate = note as Partial<DiagramNote>;
+      return (
+        typeof candidate.id === "string" &&
+        typeof candidate.categoryId === "string" &&
+        isNoteCategoryId(candidate.categoryId) &&
+        typeof candidate.title === "string" &&
+        typeof candidate.body === "string"
+      );
+    })
+  );
 }
 
 function isSectionAssignmentInput(body: unknown): body is { sectionId: string | null } {
@@ -86,6 +109,25 @@ export function createApp(diagramsRoot = DEFAULT_DIAGRAMS_ROOT) {
 
         throw error;
       }
+    }
+  );
+
+  app.get(
+    "/api/diagrams/:name/notes",
+    async (request: Request<{ name: string }>, response: Response) => {
+      response.json(await store.readDiagramNotes(request.params.name));
+    }
+  );
+
+  app.put(
+    "/api/diagrams/:name/notes",
+    async (request: Request<{ name: string }>, response: Response) => {
+      if (!isDiagramNotesInput(request.body)) {
+        response.status(400).json({ error: "notes must be valid diagram notes" });
+        return;
+      }
+
+      response.json(await store.saveDiagramNotes(request.params.name, request.body.notes));
     }
   );
 

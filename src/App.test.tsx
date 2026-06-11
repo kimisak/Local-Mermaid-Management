@@ -11,10 +11,12 @@ import {
   listDiagrams,
   listSections,
   loadDiagram,
+  loadDiagramNotes,
   renameDiagram,
   renameSection,
   reorderSections,
-  saveDiagram
+  saveDiagram,
+  saveDiagramNotes
 } from "./api/diagrams";
 import { downloadBlob, downloadTextFile } from "./lib/download";
 import { svgToRasterBlob } from "./lib/rasterExport";
@@ -25,9 +27,11 @@ vi.mock("./api/diagrams", () => ({
   listDiagrams: vi.fn(),
   listSections: vi.fn(),
   loadDiagram: vi.fn(),
+  loadDiagramNotes: vi.fn(),
   renameDiagram: vi.fn(),
   renameSection: vi.fn(),
   saveDiagram: vi.fn(),
+  saveDiagramNotes: vi.fn(),
   deleteDiagram: vi.fn(),
   deleteSection: vi.fn(),
   reorderSections: vi.fn()
@@ -57,9 +61,11 @@ const mockedCreateSection = vi.mocked(createSection);
 const mockedListDiagrams = vi.mocked(listDiagrams);
 const mockedListSections = vi.mocked(listSections);
 const mockedLoadDiagram = vi.mocked(loadDiagram);
+const mockedLoadDiagramNotes = vi.mocked(loadDiagramNotes);
 const mockedRenameDiagram = vi.mocked(renameDiagram);
 const mockedRenameSection = vi.mocked(renameSection);
 const mockedSaveDiagram = vi.mocked(saveDiagram);
+const mockedSaveDiagramNotes = vi.mocked(saveDiagramNotes);
 const mockedDeleteDiagram = vi.mocked(deleteDiagram);
 const mockedDeleteSection = vi.mocked(deleteSection);
 const mockedReorderSections = vi.mocked(reorderSections);
@@ -101,11 +107,13 @@ describe("App", () => {
       sectionId: null,
       code: name === "Checkout flow" ? "flowchart TD\n  A --> B" : "graph LR\n  C --> D"
     }));
+    mockedLoadDiagramNotes.mockResolvedValue([]);
     mockedSaveDiagram.mockResolvedValue({
       name: "Checkout flow",
       filename: "Checkout flow.mmd",
       sectionId: null
     });
+    mockedSaveDiagramNotes.mockImplementation(async (_name, notes) => notes);
     mockedDeleteDiagram.mockResolvedValue(undefined);
     mockedDeleteSection.mockResolvedValue(undefined);
     mockedRenameDiagram.mockImplementation(async (_name, nextName) => ({
@@ -742,6 +750,42 @@ describe("App", () => {
       0.92
     );
     expect(mockedDownloadBlob).toHaveBeenCalledWith("unsaved-diagram.webp", webpBlob);
+  });
+
+  it("saves typed notes and exports SVG with notes", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue("Export Flow");
+    render(<App />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: /mermaid code/i }), {
+      target: { value: "---\ntitle: Export Flow\n---\nflowchart TD\n  A --> B" }
+    });
+    await userEvent.click(await screen.findByRole("button", { name: /add note/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/category/i), "business-rule");
+    expect(screen.getByLabelText(/category/i)).toHaveAttribute(
+      "title",
+      expect.stringContaining("domain rule")
+    );
+    await userEvent.type(screen.getByLabelText(/title/i), "Cutoff");
+    await userEvent.type(screen.getByLabelText(/body/i), "Bookings after cutoff are rejected.");
+
+    await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(mockedSaveDiagramNotes).toHaveBeenCalledWith(
+      "Checkout flow",
+      expect.arrayContaining([
+        expect.objectContaining({
+          categoryId: "business-rule",
+          title: "Cutoff",
+          body: "Bookings after cutoff are rejected."
+        })
+      ])
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /svg \+ notes/i }));
+
+    const exported = mockedDownloadTextFile.mock.calls.at(-1)?.[1] ?? "";
+    expect(exported).toContain("Business Rule: Cutoff");
+    expect(exported).toContain("Bookings after cutoff are rejected.");
   });
 
   it("resizes the editor and preview panes by dragging the split handle", async () => {

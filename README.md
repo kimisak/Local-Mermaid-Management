@@ -14,6 +14,8 @@ This app is built for personal use on your own machine. It is not designed for h
 - Reorder sidebar sections with drag and drop. New sections appear first by default.
 - Rename diagrams and sections with double-click.
 - Keep delete controls hidden until sidebar edit mode is enabled.
+- Add typed notes below diagrams for business rules, assumptions, limitations, pain points, decisions, open questions, element notes, boundary/edge cases, data/integration, and compliance/policy considerations.
+- Export diagram-only files or combined diagram + notes files.
 - Copy Mermaid source code to the clipboard.
 - Export rendered diagrams as SVG, PNG, or WebP.
 - Use Mermaid frontmatter `title` as the default name for unsaved diagrams.
@@ -38,12 +40,27 @@ diagrams/.sections.json
 
 Diagram files stay flat in `diagrams/`; moving a diagram into a section only updates metadata. Deleting a section moves its diagrams back to the default Uncategorized area.
 
+Diagram notes are stored as sidecar files next to the diagram:
+
+```text
+diagrams/<diagram-name>.notes.json
+```
+
+Notes are typed blocks with a category, title, and body. Category selectors include hover text explaining the purpose of each category. Notes are saved explicitly with the diagram.
+
 ## Sidebar Organization
 
 - Double-click a diagram name in the sidebar, or the selected diagram title in the main toolbar, to rename it.
 - Double-click a section name to rename the section.
 - Use the sidebar edit toggle to show or hide delete buttons.
 - Success messages such as saved, renamed, created, and deleted clear automatically after three seconds.
+
+## Notes And Export
+
+- Notes appear below the rendered diagram in the preview area.
+- Regular SVG, PNG, and WebP export buttons export the diagram only.
+- The `+ Notes` export buttons include the rendered diagram and the note blocks underneath it.
+- SVG exports with notes keep note text as real SVG text elements, so tools that parse SVG text can read it without OCR.
 
 By default, this repository ignores saved diagram files:
 
@@ -54,7 +71,7 @@ diagrams/*
 
 That keeps the `diagrams/` folder present without committing your personal diagrams.
 
-If you want to store your diagrams and section metadata in Git, remove those two `diagrams/` lines from `.gitignore`, then add and commit the `.mmd` files and `.sections.json` metadata you want to version.
+If you want to store your diagrams and section metadata in Git, remove those two `diagrams/` lines from `.gitignore`, then add and commit the `.mmd` files, `.sections.json` metadata, and matching `.notes.json` files you want to version.
 
 ## Getting Started
 

@@ -1,3 +1,5 @@
+import type { DiagramNote } from "../../shared/diagramNotes";
+
 export type DiagramSummary = {
   name: string;
   filename: string;
@@ -79,6 +81,28 @@ export function loadDiagram(name: string) {
     diagramUrl(name),
     { method: "GET" },
     `Failed to load diagram "${name}"`
+  );
+}
+
+export function loadDiagramNotes(name: string) {
+  return fetchJson<DiagramNote[]>(
+    `${diagramUrl(name)}/notes`,
+    { method: "GET" },
+    `Failed to load notes for "${name}"`
+  );
+}
+
+export function saveDiagramNotes(name: string, notes: DiagramNote[]) {
+  return fetchJson<DiagramNote[]>(
+    `${diagramUrl(name)}/notes`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ notes })
+    },
+    `Failed to save notes for "${name}"`
   );
 }
 

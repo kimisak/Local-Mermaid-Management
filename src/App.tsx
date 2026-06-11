@@ -16,10 +16,12 @@ import {
   listDiagrams,
   listSections,
   loadDiagram,
+  loadDiagramNotes,
   renameDiagram,
   renameSection,
   reorderSections,
   saveDiagram,
+  saveDiagramNotes,
   type DiagramSummary,
   type SectionSummary
 } from "./api/diagrams";
@@ -27,6 +29,7 @@ import { CodeEditor } from "./components/CodeEditor";
 import { PreviewPane } from "./components/PreviewPane";
 import { Sidebar } from "./components/Sidebar";
 import { getMermaidFrontmatterTitle } from "./lib/mermaidInput";
+import type { DiagramNote } from "../shared/diagramNotes";
 
 const DISCARD_MESSAGE = "Discard unsaved changes?";
 const SPLIT_STORAGE_KEY = "mermaid-organizer.editorPanePercent";
@@ -55,6 +58,8 @@ export default function App() {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [savedCode, setSavedCode] = useState("");
+  const [notes, setNotes] = useState<DiagramNote[]>([]);
+  const [savedNotes, setSavedNotes] = useState<DiagramNote[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -65,7 +70,9 @@ export default function App() {
   const operationGenerationRef = useRef(0);
   const splitViewRef = useRef<HTMLDivElement | null>(null);
 
-  const isDirty = code !== savedCode;
+  const notesSnapshot = JSON.stringify(notes);
+  const savedNotesSnapshot = JSON.stringify(savedNotes);
+  const isDirty = code !== savedCode || notesSnapshot !== savedNotesSnapshot;
   const frontmatterTitle = useMemo(() => getMermaidFrontmatterTitle(code), [code]);
   const statusLabel = useMemo(() => {
     if (isDirty) {
@@ -167,7 +174,7 @@ export default function App() {
     setStatusMessage(null);
 
     try {
-      const diagram = await loadDiagram(name);
+      const [diagram, diagramNotes] = await Promise.all([loadDiagram(name), loadDiagramNotes(name)]);
       if (!isCurrentOperation(operationGeneration)) {
         return;
       }
@@ -175,6 +182,8 @@ export default function App() {
       setSelectedName(diagram.name);
       setCode(diagram.code);
       setSavedCode(diagram.code);
+      setNotes(diagramNotes);
+      setSavedNotes(diagramNotes);
     } catch (error) {
       if (!isCurrentOperation(operationGeneration)) {
         return;
@@ -197,6 +206,8 @@ export default function App() {
     setSelectedName(null);
     setCode("");
     setSavedCode("");
+    setNotes([]);
+    setSavedNotes([]);
     setBusy(false);
     setStatusMessage(null);
   }
@@ -384,6 +395,8 @@ export default function App() {
 
       setSelectedName(saved.name);
       setSavedCode(savedCodeSnapshot);
+      const savedDiagramNotes = await saveDiagramNotes(saved.name, notes);
+      setSavedNotes(savedDiagramNotes);
       await refreshList();
       if (!isCurrentOperation(operationGeneration)) {
         return;
@@ -426,6 +439,8 @@ export default function App() {
         setSelectedName(null);
         setCode("");
         setSavedCode("");
+        setNotes([]);
+        setSavedNotes([]);
       }
 
       await refreshList();
@@ -519,7 +534,12 @@ export default function App() {
               setResizingSplit(true);
             }}
           />
-          <PreviewPane code={code} diagramName={selectedName ?? frontmatterTitle} />
+          <PreviewPane
+            code={code}
+            diagramName={selectedName ?? frontmatterTitle}
+            notes={notes}
+            onNotesChange={setNotes}
+          />
         </div>
       </section>
     </main>

@@ -4,10 +4,15 @@ import { useEffect, useId, useRef, useState } from "react";
 import { downloadBlob, downloadTextFile } from "../lib/download";
 import { svgToRasterBlob, type RasterMimeType } from "../lib/rasterExport";
 import { serializeSvgForDownload } from "../lib/svgExport";
+import { serializeSvgWithNotes } from "../lib/svgWithNotes";
+import type { DiagramNote } from "../../shared/diagramNotes";
+import { DiagramNotesEditor } from "./DiagramNotesEditor";
 
 type PreviewPaneProps = {
   code: string;
   diagramName: string | null;
+  notes: DiagramNote[];
+  onNotesChange: (notes: DiagramNote[]) => void;
 };
 
 function errorMessage(error: unknown) {
@@ -27,7 +32,7 @@ function roundPan(value: number) {
   return Number(value.toFixed(2));
 }
 
-export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
+export function PreviewPane({ code, diagramName, notes, onNotesChange }: PreviewPaneProps) {
   const id = useId().replace(/:/g, "");
   const [svg, setSvg] = useState<string | null>(null);
   const [renderedCode, setRenderedCode] = useState<string | null>(null);
@@ -104,17 +109,23 @@ export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
     }
   }
 
-  async function exportRaster(type: RasterMimeType, extension: "png" | "webp") {
+  function exportSvgWithNotes() {
+    if (svg && renderedCode === code.trim() && !rendering) {
+      downloadTextFile(exportFilename(`${diagramName ?? "unsaved-diagram"}-with-notes`, "svg"), serializeSvgWithNotes(svg, notes));
+    }
+  }
+
+  async function exportRaster(type: RasterMimeType, extension: "png" | "webp", includeNotes = false) {
     if (!svg || renderedCode !== code.trim() || rendering) {
       return;
     }
 
-    const serializedSvg = serializeSvgForDownload(svg);
+    const serializedSvg = includeNotes ? serializeSvgWithNotes(svg, notes) : serializeSvgForDownload(svg);
     const blob =
       type === "image/webp"
         ? await svgToRasterBlob(serializedSvg, type, 0.92)
         : await svgToRasterBlob(serializedSvg, type);
-    downloadBlob(exportFilename(diagramName, extension), blob);
+    downloadBlob(exportFilename(includeNotes ? `${diagramName ?? "unsaved-diagram"}-with-notes` : diagramName, extension), blob);
   }
 
   function exportPng() {
@@ -123,6 +134,14 @@ export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
 
   function exportWebp() {
     void exportRaster("image/webp", "webp");
+  }
+
+  function exportPngWithNotes() {
+    void exportRaster("image/png", "png", true);
+  }
+
+  function exportWebpWithNotes() {
+    void exportRaster("image/webp", "webp", true);
   }
 
   function zoomBy(delta: number, anchor?: { x: number; y: number }) {
@@ -216,13 +235,25 @@ export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
             <Download size={16} aria-hidden="true" />
             Export SVG
           </button>
+          <button className="toolButton" type="button" onClick={exportSvgWithNotes} disabled={!canExport}>
+            <Download size={16} aria-hidden="true" />
+            SVG + Notes
+          </button>
           <button className="toolButton" type="button" onClick={exportPng} disabled={!canExport}>
             <Download size={16} aria-hidden="true" />
             Export PNG
           </button>
+          <button className="toolButton" type="button" onClick={exportPngWithNotes} disabled={!canExport}>
+            <Download size={16} aria-hidden="true" />
+            PNG + Notes
+          </button>
           <button className="toolButton" type="button" onClick={exportWebp} disabled={!canExport}>
             <Download size={16} aria-hidden="true" />
             Export WebP
+          </button>
+          <button className="toolButton" type="button" onClick={exportWebpWithNotes} disabled={!canExport}>
+            <Download size={16} aria-hidden="true" />
+            WebP + Notes
           </button>
         </div>
       </div>
@@ -278,6 +309,7 @@ export function PreviewPane({ code, diagramName }: PreviewPaneProps) {
           <p className="previewPlaceholder">Paste or type Mermaid code to render a preview.</p>
         ) : null}
       </div>
+      <DiagramNotesEditor notes={notes} onChange={onNotesChange} />
     </section>
   );
 }

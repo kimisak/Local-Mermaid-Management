@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isNoteCategoryId, type DiagramNote } from "../shared/diagramNotes";
 
 export type DiagramSummary = {
   name: string;
@@ -25,7 +27,9 @@ export type SaveDiagramInput = {
 export type DiagramStore = {
   listDiagrams(): Promise<DiagramSummary[]>;
   readDiagram(name: string): Promise<DiagramRecord>;
+  readDiagramNotes(name: string): Promise<DiagramNote[]>;
   saveDiagram(input: SaveDiagramInput): Promise<DiagramSummary>;
+  saveDiagramNotes(name: string, notes: DiagramNote[]): Promise<DiagramNote[]>;
   renameDiagram(name: string, nextName: string): Promise<DiagramSummary>;
   deleteDiagram(name: string): Promise<void>;
   listSections(): Promise<SectionSummary[]>;
@@ -84,6 +88,10 @@ export function createDiagramStore(root: string): DiagramStore {
     return path.join(root, SECTIONS_METADATA_FILENAME);
   }
 
+  function resolveNotesPath(name: string) {
+    return path.join(root, `${sanitizeDiagramName(name)}.notes.json`);
+  }
+
   async function readMetadata(): Promise<SectionsMetadata> {
     await ensureRoot();
 
@@ -133,6 +141,15 @@ export function createDiagramStore(root: string): DiagramStore {
     return `${sanitizeDiagramName(name)}-${Date.parse(createdAt).toString(36)}`;
   }
 
+  function normalizeNotes(notes: DiagramNote[]) {
+    return notes.map((note) => ({
+      id: String(note.id || randomUUID()),
+      categoryId: isNoteCategoryId(note.categoryId) ? note.categoryId : "general-note",
+      title: String(note.title ?? ""),
+      body: String(note.body ?? "")
+    }));
+  }
+
   return {
     async listDiagrams() {
       await ensureRoot();
@@ -162,12 +179,38 @@ export function createDiagramStore(root: string): DiagramStore {
       };
     },
 
+    async readDiagramNotes(name: string) {
+      try {
+        const payload = JSON.parse(await readFile(resolveNotesPath(name), "utf8")) as {
+          notes?: DiagramNote[];
+        };
+        return normalizeNotes(Array.isArray(payload.notes) ? payload.notes : []);
+      } catch (error) {
+        if (typeof error === "object" && error !== null && (error as NodeJS.ErrnoException).code === "ENOENT") {
+          return [];
+        }
+
+        throw error;
+      }
+    },
+
     async saveDiagram(input: SaveDiagramInput) {
       await ensureRoot();
       const { filename, filepath } = resolveDiagramPath(input.name);
       await writeFile(filepath, input.code, "utf8");
 
       return toSummary(filename, (await readMetadata()).assignments[filename.replace(/\.mmd$/i, "")] ?? null);
+    },
+
+    async saveDiagramNotes(name: string, notes: DiagramNote[]) {
+      await ensureRoot();
+      const normalizedNotes = normalizeNotes(notes);
+      await writeFile(
+        resolveNotesPath(name),
+        `${JSON.stringify({ notes: normalizedNotes }, null, 2)}\n`,
+        "utf8"
+      );
+      return normalizedNotes;
     },
 
     async renameDiagram(name: string, nextName: string) {
@@ -183,6 +226,17 @@ export function createDiagramStore(root: string): DiagramStore {
       const currentName = current.filename.replace(/\.mmd$/i, "");
       const nextDiagramName = next.filename.replace(/\.mmd$/i, "");
       await rename(current.filepath, next.filepath);
+      await rename(resolveNotesPath(currentName), resolveNotesPath(nextDiagramName)).catch((error: unknown) => {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          (error as NodeJS.ErrnoException).code === "ENOENT"
+        ) {
+          return;
+        }
+
+        throw error;
+      });
 
       const metadata = await readMetadata();
       const sectionId = metadata.assignments[currentName] ?? null;
@@ -200,6 +254,7 @@ export function createDiagramStore(root: string): DiagramStore {
       await ensureRoot();
       const { filepath } = resolveDiagramPath(name);
       await rm(filepath, { force: true });
+      await rm(resolveNotesPath(name), { force: true });
       const metadata = await readMetadata();
       delete metadata.assignments[sanitizeDiagramName(name)];
       await writeMetadata(metadata);
