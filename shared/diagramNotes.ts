@@ -73,6 +73,7 @@ export type DiagramNote = {
 };
 
 export type BriefPlacement = "below" | "right";
+export type BriefLayout = "vertical" | "horizontal";
 
 export type BriefSection = {
   categoryId: NoteCategoryId;
@@ -114,9 +115,11 @@ export function parseBriefMarkdown(markdown: string): BriefSection[] {
 
   for (const line of markdown.replace(/\r\n/g, "\n").split("\n")) {
     const heading = line.match(/^#\s+(.+?)\s*$/);
-    const categoryId = heading ? categoryIdFromHeading(heading[1]) : null;
 
-    if (categoryId) {
+    if (heading) {
+      const headingLabel = heading[1].trim();
+      const categoryId = categoryIdFromHeading(headingLabel) ?? "general-note";
+
       if (current) {
         current.markdown = current.markdown.trim();
         sections.push(current);
@@ -130,7 +133,7 @@ export function parseBriefMarkdown(markdown: string): BriefSection[] {
 
       current = {
         categoryId,
-        label: noteCategoryLabel(categoryId),
+        label: categoryId === "general-note" ? headingLabel : noteCategoryLabel(categoryId),
         markdown: ""
       };
       continue;

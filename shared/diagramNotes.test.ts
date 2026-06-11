@@ -36,4 +36,33 @@ Some text.
       }
     ]);
   });
+
+  it("treats any top-level heading as a brief section label", () => {
+    expect(
+      parseBriefMarkdown(`# Forretningsregler
+- Booking = kapasitetsreservasjon [R0-1]
+
+# Mål
+- Øke andel Flex [M0-1]
+
+# Praksis (avvik fra vilkår)
+- Overbooking [P0-1]`)
+    ).toEqual([
+      {
+        categoryId: "general-note",
+        label: "Forretningsregler",
+        markdown: "- Booking = kapasitetsreservasjon [R0-1]"
+      },
+      {
+        categoryId: "general-note",
+        label: "Mål",
+        markdown: "- Øke andel Flex [M0-1]"
+      },
+      {
+        categoryId: "general-note",
+        label: "Praksis (avvik fra vilkår)",
+        markdown: "- Overbooking [P0-1]"
+      }
+    ]);
+  });
 });

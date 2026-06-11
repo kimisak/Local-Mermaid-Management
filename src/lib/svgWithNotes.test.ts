@@ -27,4 +27,43 @@ describe("serializeSvgWithNotes", () => {
     expect(exported).toContain('x="924"');
     expect(exported).toContain("Constraint");
   });
+
+  it("renders markdown bullets, numbered lists, and quotes as structured SVG text", () => {
+    const exported = serializeSvgWithNotes(
+      '<svg viewBox="0 0 100 50"><text>A</text></svg>',
+      `# Forretningsregler
+- Booking = kapasitetsreservasjon
+1. Komplettering kreves
+> Avbestilling etter frist`
+    );
+
+    expect(exported).toContain("Forretningsregler");
+    expect(exported).toContain("•");
+    expect(exported).toContain("Booking = kapasitetsreservasjon");
+    expect(exported).toContain("1.");
+    expect(exported).toContain("Komplettering kreves");
+    expect(exported).toContain("<rect");
+    expect(exported).toContain("Avbestilling etter frist");
+    expect(exported).not.toContain("- Booking = kapasitetsreservasjon");
+    expect(exported).not.toContain("&gt; Avbestilling etter frist");
+  });
+
+  it("can render brief sections as a horizontal category-content grid", () => {
+    const exported = serializeSvgWithNotes(
+      '<svg viewBox="0 0 100 50"><text>A</text></svg>',
+      `# Forretningsregler
+- Booking
+
+# Mål
+- Øke Flex`,
+      "below",
+      "horizontal"
+    );
+
+    expect(exported).toContain("Forretningsregler");
+    expect(exported).toContain("Mål");
+    expect(exported).toContain('x="24"');
+    expect(exported).toContain('x="244"');
+    expect(exported).toContain("<line");
+  });
 });

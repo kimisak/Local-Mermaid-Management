@@ -15,6 +15,7 @@ This app is built for personal use on your own machine. It is not designed for h
 - Rename diagrams and sections with double-click.
 - Keep delete controls hidden until sidebar edit mode is enabled.
 - Add markdown brief notes for business rules, assumptions, limitations, pain points, decisions, open questions, element notes, boundary/edge cases, constraints, data/integration, and compliance/policy considerations.
+- Use free-form `#` headings in brief notes; helper categories are only writing prompts, not a required schema.
 - Toggle brief notes into the preview and export exactly what is visible.
 - Copy Mermaid source code to the clipboard.
 - Export rendered diagrams as SVG, PNG, or WebP.
@@ -46,7 +47,7 @@ Diagram notes are stored as sidecar files next to the diagram:
 diagrams/<diagram-name>.notes.json
 ```
 
-Brief notes are stored as markdown. Category helpers insert top-level headings such as `# Business Rule`, `# Constraint`, and `# Compliance / Policy`; the category selector includes hover text explaining each category. Notes are saved explicitly with the diagram.
+Brief notes are stored as markdown. Category helpers insert top-level headings such as `# Business Rule`, `# Constraint`, and `# Compliance / Policy`; the category selector includes hover text explaining each category. You can also write your own top-level headings such as `# Forretningsregler` or `# Mål`, and each heading becomes its own brief section. Notes are saved explicitly with the diagram.
 
 ## Sidebar Organization
 
@@ -60,6 +61,8 @@ Brief notes are stored as markdown. Category helpers insert top-level headings s
 - The left writing area has tabs for Mermaid code and markdown brief notes.
 - The Brief view toggle controls whether notes are shown in the rendered preview.
 - Brief notes can be placed below or to the right of the diagram before export.
+- Brief notes can be rendered vertically or as a horizontal category/content grid.
+- SVG brief rendering supports plain text, bullets, numbered lists, quotes, and subheadings.
 - SVG, PNG, and WebP export buttons export the current preview state: diagram only when Brief view is off, or diagram plus brief when Brief view is on.
 - SVG exports with brief notes keep note text as real SVG text elements, so tools that parse SVG text can read it without OCR.
 
