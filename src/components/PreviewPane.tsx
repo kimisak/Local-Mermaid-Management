@@ -1,4 +1,4 @@
-import { Download, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Copy, Download, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import mermaid from "mermaid";
 import { useEffect, useId, useRef, useState } from "react";
 import { parseBriefMarkdown, type BriefPlacement } from "../../shared/diagramNotes";
@@ -144,6 +144,12 @@ export function PreviewPane({ code, diagramName, briefMarkdown }: PreviewPanePro
 
   function exportWebp() {
     void exportRaster("image/webp", "webp");
+  }
+
+  async function copyError() {
+    if (error) {
+      await navigator.clipboard.writeText(error);
+    }
   }
 
   function zoomBy(delta: number, anchor?: { x: number; y: number }) {
@@ -292,7 +298,13 @@ export function PreviewPane({ code, diagramName, briefMarkdown }: PreviewPanePro
       >
         {error ? (
           <div className="renderError" role="alert">
-            <strong>Mermaid render error</strong>
+            <div className="renderErrorHeader">
+              <strong>Mermaid render error</strong>
+              <button className="toolButton" type="button" onClick={copyError}>
+                <Copy size={16} aria-hidden="true" />
+                Copy error
+              </button>
+            </div>
             <pre>{error}</pre>
           </div>
         ) : null}

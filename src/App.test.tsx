@@ -187,6 +187,22 @@ describe("App", () => {
     );
   });
 
+  it("copies Mermaid render errors to the clipboard", async () => {
+    mockedMermaidRender.mockRejectedValueOnce(new Error("Parse error on line 2: expected node id"));
+    render(<App />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: /mermaid code/i }), {
+      target: { value: "flowchart TD\n  A -->" }
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Parse error on line 2");
+    await userEvent.click(screen.getByRole("button", { name: /copy error/i }));
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "Parse error on line 2: expected node id"
+    );
+  });
+
   it("creates a sidebar section", async () => {
     vi.spyOn(window, "prompt").mockReturnValue("Workflows");
     render(<App />);
