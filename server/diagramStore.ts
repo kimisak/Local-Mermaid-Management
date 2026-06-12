@@ -12,6 +12,12 @@ export type DiagramRecord = DiagramSummary & {
   code: string;
 };
 
+export type DiagramSearchMatch = "title" | "code" | "brief";
+
+export type DiagramSearchResult = DiagramSummary & {
+  matches: DiagramSearchMatch[];
+};
+
 export type SectionSummary = {
   id: string;
   name: string;
@@ -25,6 +31,7 @@ export type SaveDiagramInput = {
 
 export type DiagramStore = {
   listDiagrams(): Promise<DiagramSummary[]>;
+  searchDiagrams(query: string): Promise<DiagramSearchResult[]>;
   readDiagram(name: string): Promise<DiagramRecord>;
   readDiagramNotes(name: string): Promise<string>;
   saveDiagram(input: SaveDiagramInput): Promise<DiagramSummary>;
@@ -156,6 +163,44 @@ export function createDiagramStore(root: string): DiagramStore {
           const sectionId = metadata.assignments[name] ?? null;
           return toSummary(filename, sectionId && validSectionIds.has(sectionId) ? sectionId : null);
         });
+    },
+
+    async searchDiagrams(query: string) {
+      const normalizedQuery = query.trim().toLowerCase();
+
+      if (!normalizedQuery) {
+        return [];
+      }
+
+      const summaries = await this.listDiagrams();
+      const results: DiagramSearchResult[] = [];
+
+      for (const summary of summaries) {
+        const code = await readFile(path.join(root, summary.filename), "utf8");
+        const brief = await this.readDiagramNotes(summary.name);
+        const matches: DiagramSearchMatch[] = [];
+
+        if (
+          summary.name.toLowerCase().includes(normalizedQuery) ||
+          summary.filename.toLowerCase().includes(normalizedQuery)
+        ) {
+          matches.push("title");
+        }
+
+        if (code.toLowerCase().includes(normalizedQuery)) {
+          matches.push("code");
+        }
+
+        if (brief.toLowerCase().includes(normalizedQuery)) {
+          matches.push("brief");
+        }
+
+        if (matches.length > 0) {
+          results.push({ ...summary, matches });
+        }
+      }
+
+      return results;
     },
 
     async readDiagram(name: string) {

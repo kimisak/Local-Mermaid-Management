@@ -10,6 +10,7 @@ This app is built for personal use on your own machine. It is not designed for h
 - Render Mermaid diagrams live in the browser.
 - Save diagrams as local `.mmd` files.
 - Browse, group, move, and delete saved diagrams from the sidebar.
+- Search saved diagrams by title, Mermaid code, and brief notes from the sidebar.
 - Create collapsible sidebar sections and drag diagrams into them.
 - Reorder sidebar sections with drag and drop. New sections appear first by default.
 - Rename diagrams and sections with double-click.

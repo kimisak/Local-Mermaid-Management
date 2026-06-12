@@ -60,6 +60,25 @@ button:disabled {
   gap: 8px;
 }
 
+.sidebarSearch {
+  display: flex;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e252d;
+  padding: 0 10px;
+}
+
+.searchInput:focus {
+  border-color: #26706f;
+  outline: 2px solid #d8e8e6;
+}
+
 .sidebarHeader h1,
 .paneHeader h2 {
   margin: 2px 0 0;
@@ -183,6 +202,7 @@ button:disabled {
   display: grid;
   min-width: 0;
   min-height: 54px;
+  gap: 3px;
   padding: 9px 10px;
   text-align: left;
 }
@@ -208,6 +228,24 @@ button:disabled {
 .diagramFilename {
   color: #6a7684;
   font-size: 0.78rem;
+}
+
+.matchBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.matchBadge {
+  width: fit-content;
+  border-radius: 999px;
+  background: #e3ecef;
+  color: #425160;
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .iconButton {

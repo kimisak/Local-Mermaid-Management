@@ -1,13 +1,20 @@
 import { ChevronDown, ChevronRight, FilePlus2, FolderPlus, Pencil, Trash2 } from "lucide-react";
-import type { DiagramSummary, SectionSummary } from "../api/diagrams";
+import type { DiagramSearchMatch, DiagramSummary, SectionSummary } from "../api/diagrams";
+
+type SidebarDiagram = DiagramSummary & {
+  matches?: DiagramSearchMatch[];
+};
 
 type SidebarProps = {
-  diagrams: DiagramSummary[];
+  diagrams: SidebarDiagram[];
   sections: SectionSummary[];
   collapsedSectionIds: Set<string>;
   selectedName: string | null;
   loading: boolean;
+  searchQuery: string;
+  searching: boolean;
   editMode: boolean;
+  onSearchQueryChange: (query: string) => void;
   onCreate: () => void;
   onSelect: (name: string) => void;
   onRename: (name: string) => void;
@@ -27,7 +34,10 @@ export function Sidebar({
   collapsedSectionIds,
   selectedName,
   loading,
+  searchQuery,
+  searching,
   editMode,
+  onSearchQueryChange,
   onCreate,
   onSelect,
   onRename,
@@ -41,8 +51,9 @@ export function Sidebar({
   onMoveSection
 }: SidebarProps) {
   const unsectionedDiagrams = diagrams.filter((diagram) => diagram.sectionId === null);
+  const isSearching = searchQuery.trim() !== "";
 
-  function renderDiagram(diagram: DiagramSummary) {
+  function renderDiagram(diagram: SidebarDiagram) {
     return (
       <li className="diagramListItem" key={diagram.name} aria-label={diagram.name}>
         <button
@@ -57,6 +68,15 @@ export function Sidebar({
         >
           <span className="diagramName">{diagram.name}</span>
           <span className="diagramFilename">{diagram.filename}</span>
+          {diagram.matches?.length ? (
+            <span className="matchBadges" aria-label={`Matched ${diagram.matches.join(", ")}`}>
+              {diagram.matches.map((match) => (
+                <span className="matchBadge" key={match}>
+                  {match}
+                </span>
+              ))}
+            </span>
+          ) : null}
         </button>
         {editMode ? (
           <button
@@ -98,29 +118,48 @@ export function Sidebar({
         </div>
       </div>
 
-      {loading ? <p className="mutedText">Loading saved diagrams...</p> : null}
+      <div className="sidebarSearch">
+        <input
+          aria-label="Search diagrams"
+          className="searchInput"
+          type="search"
+          value={searchQuery}
+          onChange={(event) => onSearchQueryChange(event.target.value)}
+          placeholder="Search title, code, brief"
+        />
+      </div>
+
+      {loading || searching ? (
+        <p className="mutedText">{searching ? "Searching diagrams..." : "Loading saved diagrams..."}</p>
+      ) : null}
 
       <ul className="diagramList" aria-label="Saved diagrams">
-        <li
-          className="sectionGroup"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            const diagramName = event.dataTransfer.getData("application/x-mermaid-diagram");
-            if (diagramName) {
-              onMoveDiagramToSection(diagramName, null);
-            }
-          }}
-        >
-          <div className="sectionHeader">
-            <span className="sectionTitle">Uncategorized</span>
-            <span className="sectionCount">{unsectionedDiagrams.length}</span>
-          </div>
-          <ul className="sectionDiagramList">{unsectionedDiagrams.map(renderDiagram)}</ul>
-        </li>
+        {!isSearching || unsectionedDiagrams.length > 0 ? (
+          <li
+            className="sectionGroup"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              const diagramName = event.dataTransfer.getData("application/x-mermaid-diagram");
+              if (diagramName) {
+                onMoveDiagramToSection(diagramName, null);
+              }
+            }}
+          >
+            <div className="sectionHeader">
+              <span className="sectionTitle">Uncategorized</span>
+              <span className="sectionCount">{unsectionedDiagrams.length}</span>
+            </div>
+            <ul className="sectionDiagramList">{unsectionedDiagrams.map(renderDiagram)}</ul>
+          </li>
+        ) : null}
 
         {sections.map((section) => {
           const sectionDiagrams = diagrams.filter((diagram) => diagram.sectionId === section.id);
-          const isCollapsed = collapsedSectionIds.has(section.id);
+          const isCollapsed = !isSearching && collapsedSectionIds.has(section.id);
+
+          if (isSearching && sectionDiagrams.length === 0) {
+            return null;
+          }
 
           return (
             <li
@@ -177,8 +216,8 @@ export function Sidebar({
         })}
       </ul>
 
-      {!loading && diagrams.length === 0 ? (
-        <p className="mutedText">No saved diagrams yet.</p>
+      {!loading && !searching && diagrams.length === 0 ? (
+        <p className="mutedText">{isSearching ? "No diagrams match your search." : "No saved diagrams yet."}</p>
       ) : null}
     </aside>
   );

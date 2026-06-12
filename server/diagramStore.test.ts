@@ -166,6 +166,42 @@ describe("createDiagramStore", () => {
     });
   });
 
+  it("searches diagrams by title, code, and brief notes", async () => {
+    const root = await createTempRoot();
+    const store = createDiagramStore(root);
+
+    await store.saveDiagram({ name: "Checkout", code: "flowchart TD\n  A --> B" });
+    await store.saveDiagram({ name: "Settlement", code: "sequenceDiagram\n  Customer->>Ledger: Post invoice" });
+    await store.saveDiagram({ name: "Roadmap", code: "flowchart LR\n  Idea --> Build" });
+    await store.saveDiagramNotes("checkout", "# Pain Point\nManual booking creates duplicate entry.");
+
+    expect(await store.searchDiagrams("checkout")).toEqual([
+      {
+        name: "checkout",
+        filename: "checkout.mmd",
+        sectionId: null,
+        matches: ["title"]
+      }
+    ]);
+    expect(await store.searchDiagrams("ledger")).toEqual([
+      {
+        name: "settlement",
+        filename: "settlement.mmd",
+        sectionId: null,
+        matches: ["code"]
+      }
+    ]);
+    expect(await store.searchDiagrams("manual booking")).toEqual([
+      {
+        name: "checkout",
+        filename: "checkout.mmd",
+        sectionId: null,
+        matches: ["brief"]
+      }
+    ]);
+    expect(await store.searchDiagrams("   ")).toEqual([]);
+  });
+
   it("renames a section", async () => {
     const root = await createTempRoot();
     const store = createDiagramStore(root);

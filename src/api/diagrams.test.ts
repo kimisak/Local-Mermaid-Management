@@ -12,7 +12,8 @@ import {
   renameSection,
   reorderSections,
   saveDiagram,
-  saveDiagramNotes
+  saveDiagramNotes,
+  searchDiagrams
 } from "./diagrams";
 
 describe("diagram API errors", () => {
@@ -26,6 +27,25 @@ describe("diagram API errors", () => {
     await expect(listDiagrams()).rejects.toThrow(
       "Failed to list diagrams: fetch failed"
     );
+  });
+
+  it("searches diagrams with an encoded query", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          { name: "checkout", filename: "checkout.mmd", sectionId: null, matches: ["brief"] }
+        ]),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      )
+    );
+
+    await expect(searchDiagrams("manual booking")).resolves.toEqual([
+      { name: "checkout", filename: "checkout.mmd", sectionId: null, matches: ["brief"] }
+    ]);
+    expect(fetch).toHaveBeenCalledWith("/api/search?q=manual+booking", { method: "GET" });
   });
 
   it("wraps load diagram invalid JSON failures with operation context", async () => {
@@ -86,6 +106,14 @@ describe("diagram API errors", () => {
     );
     await expect(saveDiagramNotes("checkout", "")).rejects.toThrow(
       "Failed to save notes for \"checkout\": offline"
+    );
+  });
+
+  it("wraps search failures with operation context", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+
+    await expect(searchDiagrams("booking")).rejects.toThrow(
+      "Failed to search diagrams: offline"
     );
   });
 

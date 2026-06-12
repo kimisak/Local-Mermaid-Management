@@ -16,7 +16,8 @@ import {
   renameSection,
   reorderSections,
   saveDiagram,
-  saveDiagramNotes
+  saveDiagramNotes,
+  searchDiagrams
 } from "./api/diagrams";
 import { downloadBlob, downloadTextFile } from "./lib/download";
 import { svgToRasterBlob } from "./lib/rasterExport";
@@ -34,7 +35,8 @@ vi.mock("./api/diagrams", () => ({
   saveDiagramNotes: vi.fn(),
   deleteDiagram: vi.fn(),
   deleteSection: vi.fn(),
-  reorderSections: vi.fn()
+  reorderSections: vi.fn(),
+  searchDiagrams: vi.fn()
 }));
 
 vi.mock("mermaid", () => ({
@@ -66,6 +68,7 @@ const mockedRenameDiagram = vi.mocked(renameDiagram);
 const mockedRenameSection = vi.mocked(renameSection);
 const mockedSaveDiagram = vi.mocked(saveDiagram);
 const mockedSaveDiagramNotes = vi.mocked(saveDiagramNotes);
+const mockedSearchDiagrams = vi.mocked(searchDiagrams);
 const mockedDeleteDiagram = vi.mocked(deleteDiagram);
 const mockedDeleteSection = vi.mocked(deleteSection);
 const mockedReorderSections = vi.mocked(reorderSections);
@@ -109,6 +112,7 @@ describe("App", () => {
       { name: "Checkout flow", filename: "Checkout flow.mmd", sectionId: null },
       { name: "Roadmap", filename: "Roadmap.mmd", sectionId: null }
     ]);
+    mockedSearchDiagrams.mockResolvedValue([]);
     mockedListSections.mockResolvedValue([]);
     mockedLoadDiagram.mockImplementation(async (name: string) => ({
       name,
@@ -815,6 +819,20 @@ describe("App", () => {
     );
     expect(screen.queryByLabelText(/brief category/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /insert category/i })).not.toBeInTheDocument();
+  });
+
+  it("filters the sidebar with server-side title, code, and brief search", async () => {
+    mockedSearchDiagrams.mockResolvedValue([
+      { name: "Checkout flow", filename: "Checkout flow.mmd", sectionId: null, matches: ["brief"] }
+    ]);
+    render(<App />);
+
+    await userEvent.type(await screen.findByRole("searchbox", { name: /search diagrams/i }), "manual booking");
+
+    await waitFor(() => expect(mockedSearchDiagrams).toHaveBeenCalledWith("manual booking"));
+    expect(await screen.findByText("brief")).toBeInTheDocument();
+    expect(screen.getByText("Checkout flow")).toBeInTheDocument();
+    expect(screen.queryByText("Roadmap")).not.toBeInTheDocument();
   });
 
   it("can place the brief to the left or above the rendered diagram", async () => {

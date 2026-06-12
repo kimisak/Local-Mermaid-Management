@@ -81,6 +81,11 @@ export function createApp(diagramsRoot = DEFAULT_DIAGRAMS_ROOT) {
     response.json(await store.listDiagrams());
   });
 
+  app.get("/api/search", async (request: Request, response: Response) => {
+    const query = typeof request.query.q === "string" ? request.query.q : "";
+    response.json(await store.searchDiagrams(query));
+  });
+
   app.get(
     "/api/diagrams/:name",
     async (request: Request<{ name: string }>, response: Response) => {

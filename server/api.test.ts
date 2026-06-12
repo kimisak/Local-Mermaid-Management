@@ -176,6 +176,32 @@ describe("diagram API", () => {
       });
   });
 
+  it("searches diagrams by title, code, and brief notes", async () => {
+    const root = await createTempRoot();
+    const app = createApp(root);
+
+    await request(app)
+      .post("/api/diagrams")
+      .send({ name: "Checkout", code: "flowchart TD\n  A --> B" })
+      .expect(200);
+    await request(app)
+      .put("/api/diagrams/checkout/notes")
+      .send({ markdown: "# Pain Point\nManual booking creates duplicate entry." })
+      .expect(200);
+
+    await request(app)
+      .get("/api/search?q=manual%20booking")
+      .expect(200)
+      .expect([
+        {
+          name: "checkout",
+          filename: "checkout.mmd",
+          sectionId: null,
+          matches: ["brief"]
+        }
+      ]);
+  });
+
   it("returns sanitized JSON for unexpected filesystem errors", async () => {
     const root = path.join(await createTempRoot(), "not-a-directory");
     await writeFile(root, "file blocks directory creation", "utf8");

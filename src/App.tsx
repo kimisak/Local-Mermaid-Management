@@ -22,7 +22,9 @@ import {
   reorderSections,
   saveDiagram,
   saveDiagramNotes,
+  searchDiagrams,
   type DiagramSummary,
+  type DiagramSearchResult,
   type SectionSummary
 } from "./api/diagrams";
 import { CodeEditor } from "./components/CodeEditor";
@@ -51,6 +53,9 @@ function initialEditorPanePercent() {
 
 export default function App() {
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
+  const [searchResults, setSearchResults] = useState<DiagramSearchResult[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
   const [sections, setSections] = useState<SectionSummary[]>([]);
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(
     () => new Set(JSON.parse(localStorage.getItem(COLLAPSED_SECTIONS_STORAGE_KEY) ?? "[]") as string[])
@@ -69,6 +74,7 @@ export default function App() {
   const [editorPanePercent, setEditorPanePercent] = useState(initialEditorPanePercent);
   const [resizingSplit, setResizingSplit] = useState(false);
   const operationGenerationRef = useRef(0);
+  const searchGenerationRef = useRef(0);
   const splitViewRef = useRef<HTMLDivElement | null>(null);
 
   const isDirty = code !== savedCode || briefMarkdown !== savedBriefMarkdown;
@@ -98,6 +104,41 @@ export default function App() {
   useEffect(() => {
     void refreshList();
   }, [refreshList]);
+
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim();
+    const searchGeneration = searchGenerationRef.current + 1;
+    searchGenerationRef.current = searchGeneration;
+
+    if (!trimmedQuery) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const timeout = window.setTimeout(() => {
+      searchDiagrams(trimmedQuery)
+        .then((results) => {
+          if (searchGenerationRef.current === searchGeneration) {
+            setSearchResults(results);
+          }
+        })
+        .catch((error) => {
+          if (searchGenerationRef.current === searchGeneration) {
+            setErrorMessage(error);
+            setSearchResults([]);
+          }
+        })
+        .finally(() => {
+          if (searchGenerationRef.current === searchGeneration) {
+            setSearching(false);
+          }
+        });
+    }, 150);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (!message || messageKind === "error") {
@@ -465,12 +506,15 @@ export default function App() {
   return (
     <main className="appShell">
       <Sidebar
-        diagrams={diagrams}
+        diagrams={searchQuery.trim() ? searchResults : diagrams}
         sections={sections}
         collapsedSectionIds={collapsedSectionIds}
         selectedName={selectedName}
         loading={loadingList}
+        searchQuery={searchQuery}
+        searching={searching}
         editMode={editMode}
+        onSearchQueryChange={setSearchQuery}
         onCreate={handleCreate}
         onSelect={handleSelect}
         onRename={handleRenameDiagram}

@@ -8,6 +8,12 @@ export type DiagramRecord = DiagramSummary & {
   code: string;
 };
 
+export type DiagramSearchMatch = "title" | "code" | "brief";
+
+export type DiagramSearchResult = DiagramSummary & {
+  matches: DiagramSearchMatch[];
+};
+
 type SaveDiagramInput = {
   name: string;
   code: string;
@@ -79,6 +85,15 @@ export function loadDiagram(name: string) {
     diagramUrl(name),
     { method: "GET" },
     `Failed to load diagram "${name}"`
+  );
+}
+
+export function searchDiagrams(query: string) {
+  const params = new URLSearchParams({ q: query });
+  return fetchJson<DiagramSearchResult[]>(
+    `/api/search?${params.toString()}`,
+    { method: "GET" },
+    "Failed to search diagrams"
   );
 }
 
